@@ -61,5 +61,18 @@ namespace API_PRODUCAO.Controllers
         {
             return await _context.Producoes.ToListAsync();
         }
+        [HttpGet]
+        
+        // --- ENDPOINT CRÍTICO AQUI ---
+        // GET: api/Producoes/abertas
+        // Este endpoint filtra e retorna apenas as OPs com status "Aberto".
+        [HttpGet("abertas")]
+        public async Task<ActionResult<IEnumerable<Producoes>>> GetProducoesAbertas()
+        {
+            var producoesAbertas = await _context.Producoes
+                                                 .Where(p => p.Status == "Aberto")
+                                                 .ToListAsync();
+            return Ok(producoesAbertas);
+        }
     }
 }
