@@ -96,6 +96,56 @@ namespace API_PRODUCAO.Migrations
                     b.ToTable("DetalhamentoOPs");
                 });
 
+            modelBuilder.Entity("API_PRODUCAO.Models.Eficiencia", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Motivo")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Operador")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("OrdemProducao")
+                        .HasColumnType("int");
+
+                    b.Property<TimeSpan>("Tempo")
+                        .HasColumnType("time");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Eficiencia");
+                });
+
+            modelBuilder.Entity("API_PRODUCAO.Models.Perdas", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Motivo")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Operador")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("OrdemProducao")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Quantidade")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Perdas");
+                });
+
             modelBuilder.Entity("API_PRODUCAO.Models.Producoes", b =>
                 {
                     b.Property<int>("OrdemProducao")

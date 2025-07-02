@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace API_PRODUCAO.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20250701122242_AddCargoToUsuarios")]
-    partial class AddCargoToUsuarios
+    [Migration("20250702190448_InitialCr")]
+    partial class InitialCr
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -68,6 +68,87 @@ namespace API_PRODUCAO.Migrations
                     b.ToTable("Cadastros");
                 });
 
+            modelBuilder.Entity("API_PRODUCAO.Models.DetalhamentoOP", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("EmbPerdidas")
+                        .HasColumnType("int");
+
+                    b.Property<int>("EmbProcessadas")
+                        .HasColumnType("int");
+
+                    b.Property<int>("EmbProduzidas")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Operador")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("OrdemProducao")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Turno")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("DetalhamentoOPs");
+                });
+
+            modelBuilder.Entity("API_PRODUCAO.Models.Eficiencia", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Motivo")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Operador")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("OrdemProducao")
+                        .HasColumnType("int");
+
+                    b.Property<TimeSpan>("Tempo")
+                        .HasColumnType("time");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Eficiencia");
+                });
+
+            modelBuilder.Entity("API_PRODUCAO.Models.Perdas", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Motivo")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Operador")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("OrdemProducao")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Quantidade")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Perdas");
+                });
+
             modelBuilder.Entity("API_PRODUCAO.Models.Producoes", b =>
                 {
                     b.Property<int>("OrdemProducao")
@@ -89,6 +170,9 @@ namespace API_PRODUCAO.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Status")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Unidade")
                         .HasColumnType("nvarchar(max)");
 
                     b.HasKey("OrdemProducao");

@@ -12,7 +12,9 @@ namespace API_PRODUCAO.Data
         public DbSet<Cadastro> Cadastros { get; set; }
         public DbSet<Producoes> Producoes { get; set; }
         public DbSet<Usuarios> Usuarios { get; set; }
-        public DbSet<DetalhamentoOP> DetalhamentoOPs { get; set; } // Adicionar esta linha
+        public DbSet<DetalhamentoOP> DetalhamentoOPs { get; set; }
+        public DbSet<Perdas> Perdas { get; set; }
+        public DbSet<Eficiencia> Eficiencia { get; set; } // Adicionar esta linha
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
