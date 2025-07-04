@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace API_PRODUCAO.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20250702190448_InitialCr")]
-    partial class InitialCr
+    [Migration("20250704144122_BloqueioToString")]
+    partial class BloqueioToString
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -122,6 +122,55 @@ namespace API_PRODUCAO.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Eficiencia");
+                });
+
+            modelBuilder.Entity("API_PRODUCAO.Models.Paletizacao", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Bloqueio")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("CodigoProduto")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("DataHoraPaletizacao")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Maquina")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("N_Palete")
+                        .HasColumnType("int");
+
+                    b.Property<int>("OrdemProducao")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Produto")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("QtdeCx")
+                        .HasColumnType("int");
+
+                    b.Property<int>("QtdePorPalete")
+                        .HasColumnType("int");
+
+                    b.Property<int>("QtdeProduzida")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Unidade")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Usuario")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Paletizacoes");
                 });
 
             modelBuilder.Entity("API_PRODUCAO.Models.Perdas", b =>

@@ -1,8 +1,8 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using API_PRODUCAO.Data;
+using API_PRODUCAO.Services.Interfaces;
+using API_PRODUCAO.DTOs;
 using API_PRODUCAO.Models;
-using System.Threading.Tasks;
+using AutoMapper;
 
 namespace API_PRODUCAO.Controllers
 {
@@ -10,85 +10,41 @@ namespace API_PRODUCAO.Controllers
     [ApiController]
     public class UsuarioController : ControllerBase
     {
-        private readonly AppDbContext _context;
+        private readonly IUsuarioService _usuarioService;
+        private readonly IMapper _mapper;
 
-        public UsuarioController(AppDbContext context)
+        public UsuarioController(IUsuarioService usuarioService, IMapper mapper)
         {
-            _context = context;
+            _usuarioService = usuarioService;
+            _mapper = mapper;
         }
 
-        // POST: api/Usuario/login
-        // Endpoint para validar um usuário existente pela matrícula.
         [HttpPost("login")]
-        public async Task<ActionResult<Usuarios>> Login([FromBody] LoginRequest loginRequest)
+        public async Task<ActionResult<UsuarioDto>> Login([FromBody] LoginRequestDto loginRequest)
         {
-            if (loginRequest == null || !loginRequest.Matricula.HasValue)
-            {
-                return BadRequest("O campo Matrícula é obrigatório.");
-            }
-
-            var usuario = await _context.Usuarios
-                                        .FirstOrDefaultAsync(u => u.Matricula == loginRequest.Matricula.Value);
-
+            var usuario = await _usuarioService.LoginAsync(loginRequest.Matricula.Value);
             if (usuario == null)
             {
                 return NotFound("Usuário com esta matrícula não foi encontrado.");
             }
-
-            return Ok(usuario);
+            var usuarioDto = _mapper.Map<UsuarioDto>(usuario);
+            return Ok(usuarioDto);
         }
 
-        // POST: api/Usuario
-        // Endpoint para registrar um novo usuário.
-        [HttpPost]
-        public async Task<ActionResult<Usuarios>> PostUsuario([FromBody] Usuarios usuario)
+        [HttpPost("register")]
+        public async Task<ActionResult<UsuarioDto>> Register([FromBody] CreateUsuarioDto usuarioDto)
         {
-            // Validação dos dados recebidos
-            if (usuario == null || !usuario.Matricula.HasValue || string.IsNullOrWhiteSpace(usuario.Nome))
+            if (await _usuarioService.UsuarioExistsAsync(usuarioDto.Matricula.Value))
             {
-                return BadRequest("Nome e Matrícula são campos obrigatórios.");
+                return Conflict("Já existe um usuário cadastrado com esta matrícula.");
             }
 
-            // Verifica se já existe um usuário com a mesma matrícula para evitar duplicados
-            var usuarioExistente = await _context.Usuarios
-                                                 .AnyAsync(u => u.Matricula == usuario.Matricula);
+            var usuario = _mapper.Map<Usuarios>(usuarioDto);
+            var usuarioCriado = await _usuarioService.RegisterAsync(usuario);
+            var resultadoDto = _mapper.Map<UsuarioDto>(usuarioCriado);
 
-            if (usuarioExistente)
-            {
-                return Conflict("Já existe um usuário cadastrado com esta matrícula."); // Retorna 409 Conflict
-            }
-
-            // Adiciona o novo usuário ao contexto do banco de dados
-            _context.Usuarios.Add(usuario);
-            // Salva as mudanças no banco de dados
-            await _context.SaveChangesAsync();
-
-            // Retorna uma resposta 201 Created com os dados do usuário criado
-            // e um link para o recurso recém-criado no Header 'Location'.
-            return CreatedAtAction(nameof(GetUsuario), new { id = usuario.Id }, usuario);
-        }
-
-        // GET: api/Usuario/5
-        // Endpoint auxiliar para o CreatedAtAction funcionar corretamente.
-        // Retorna um usuário específico pelo seu Id.
-        [HttpGet("{id}")]
-        public async Task<ActionResult<Usuarios>> GetUsuario(int id)
-        {
-            var usuario = await _context.Usuarios.FindAsync(id);
-
-            if (usuario == null)
-            {
-                return NotFound();
-            }
-
-            return Ok(usuario);
-        }
-
-
-        // DTO (Data Transfer Object) para o request de login
-        public class LoginRequest
-        {
-            public int? Matricula { get; set; }
+            // A rota para buscar um usuário por ID pode não existir, então retornamos apenas o objeto criado.
+            return Created(nameof(Register), resultadoDto);
         }
     }
 }

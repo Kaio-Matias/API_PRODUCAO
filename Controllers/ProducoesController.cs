@@ -1,10 +1,8 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using API_PRODUCAO.Data;
+using API_PRODUCAO.Services.Interfaces;
+using API_PRODUCAO.DTOs;
 using API_PRODUCAO.Models;
-using System.Threading.Tasks;
-using System;
-using Microsoft.EntityFrameworkCore;
-using System.Collections.Generic;
+using AutoMapper;
 
 namespace API_PRODUCAO.Controllers
 {
@@ -12,67 +10,50 @@ namespace API_PRODUCAO.Controllers
     [ApiController]
     public class ProducoesController : ControllerBase
     {
-        private readonly AppDbContext _context;
+        private readonly IProducaoService _producaoService;
+        private readonly IMapper _mapper;
 
-        public ProducoesController(AppDbContext context)
+        public ProducoesController(IProducaoService producaoService, IMapper mapper)
         {
-            _context = context;
+            _producaoService = producaoService;
+            _mapper = mapper;
         }
 
-        // POST: api/Producoes
-        [HttpPost]
-        public async Task<ActionResult<Producoes>> PostProducao([FromBody] Producoes producao)
+        [HttpGet]
+        public async Task<ActionResult<IEnumerable<ProducaoDto>>> GetProducoes()
         {
-            // Validação para garantir que os campos essenciais foram enviados
-            if (!ModelState.IsValid || string.IsNullOrEmpty(producao.Produto) || string.IsNullOrEmpty(producao.Unidade))
-            {
-                return BadRequest("Modelo de dados inválido. Produto e Unidade são obrigatórios.");
-            }
-
-            // Garante que o status e a data de abertura sejam definidos no servidor
-            producao.Status = "Aberto";
-            producao.DataHoraAbertura = DateTime.Now;
-            producao.DataHoraFechamento = null; // Garante que o fechamento seja nulo na criação
-
-            _context.Producoes.Add(producao);
-            await _context.SaveChangesAsync();
-
-            // Retorna o objeto criado, incluindo a nova 'OrdemProducao' gerada pelo banco
-            return CreatedAtAction(nameof(GetProducao), new { id = producao.OrdemProducao }, producao);
+            var producoes = await _producaoService.GetAllProducoesAsync();
+            var producoesDto = _mapper.Map<IEnumerable<ProducaoDto>>(producoes);
+            return Ok(producoesDto);
         }
 
-        // GET: api/Producoes/5 (Endpoint auxiliar para o CreatedAtAction)
         [HttpGet("{id}")]
-        public async Task<ActionResult<Producoes>> GetProducao(int id)
+        public async Task<ActionResult<ProducaoDto>> GetProducao(int id)
         {
-            var producao = await _context.Producoes.FindAsync(id);
-
+            var producao = await _producaoService.GetProducaoByIdAsync(id);
             if (producao == null)
             {
                 return NotFound();
             }
-
-            return producao;
+            var producaoDto = _mapper.Map<ProducaoDto>(producao);
+            return Ok(producaoDto);
         }
 
-        // GET: api/Producoes (Adicionado para consulta)
-        [HttpGet]
-        public async Task<ActionResult<IEnumerable<Producoes>>> GetProducoes()
-        {
-            return await _context.Producoes.ToListAsync();
-        }
-        [HttpGet]
-        
-        // --- ENDPOINT CRÍTICO AQUI ---
-        // GET: api/Producoes/abertas
-        // Este endpoint filtra e retorna apenas as OPs com status "Aberto".
         [HttpGet("abertas")]
-        public async Task<ActionResult<IEnumerable<Producoes>>> GetProducoesAbertas()
+        public async Task<ActionResult<IEnumerable<ProducaoDto>>> GetProducoesAbertas()
         {
-            var producoesAbertas = await _context.Producoes
-                                                 .Where(p => p.Status == "Aberto")
-                                                 .ToListAsync();
-            return Ok(producoesAbertas);
+            var producoesAbertas = await _producaoService.GetProducoesAbertasAsync();
+            var producoesDto = _mapper.Map<IEnumerable<ProducaoDto>>(producoesAbertas);
+            return Ok(producoesDto);
+        }
+
+        [HttpPost]
+        public async Task<ActionResult<ProducaoDto>> PostProducao([FromBody] CreateProducaoDto producaoDto)
+        {
+            var producao = _mapper.Map<Producoes>(producaoDto);
+            var producaoCriada = await _producaoService.CreateProducaoAsync(producao);
+            var resultadoDto = _mapper.Map<ProducaoDto>(producaoCriada);
+            return CreatedAtAction(nameof(GetProducao), new { id = resultadoDto.OrdemProducao }, resultadoDto);
         }
     }
 }

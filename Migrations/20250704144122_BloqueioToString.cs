@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace API_PRODUCAO.Migrations
 {
     /// <inheritdoc />
-    public partial class InitialCr : Migration
+    public partial class BloqueioToString : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -65,6 +65,30 @@ namespace API_PRODUCAO.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_Eficiencia", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "Paletizacoes",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    N_Palete = table.Column<int>(type: "int", nullable: false),
+                    OrdemProducao = table.Column<int>(type: "int", nullable: false),
+                    CodigoProduto = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    Produto = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    Unidade = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    Maquina = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    Usuario = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    QtdeCx = table.Column<int>(type: "int", nullable: false),
+                    QtdePorPalete = table.Column<int>(type: "int", nullable: false),
+                    QtdeProduzida = table.Column<int>(type: "int", nullable: false),
+                    Bloqueio = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    DataHoraPaletizacao = table.Column<DateTime>(type: "datetime2", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Paletizacoes", x => x.Id);
                 });
 
             migrationBuilder.CreateTable(
@@ -128,6 +152,9 @@ namespace API_PRODUCAO.Migrations
 
             migrationBuilder.DropTable(
                 name: "Eficiencia");
+
+            migrationBuilder.DropTable(
+                name: "Paletizacoes");
 
             migrationBuilder.DropTable(
                 name: "Perdas");
