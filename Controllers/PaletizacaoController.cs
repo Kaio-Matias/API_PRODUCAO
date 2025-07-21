@@ -1,7 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using API_PRODUCAO.Services.Interfaces;
-using API_PRODUCAO.DTOs;
 using API_PRODUCAO.Models;
+using Valedourado.Shared.Dtos;
 using AutoMapper;
 using System.Collections.Generic;
 using System.Linq;

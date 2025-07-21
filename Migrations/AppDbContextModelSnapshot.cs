@@ -17,7 +17,7 @@ namespace API_PRODUCAO.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "9.0.6")
+                .HasAnnotation("ProductVersion", "9.0.7")
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
@@ -93,6 +93,8 @@ namespace API_PRODUCAO.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("OrdemProducao");
+
                     b.ToTable("DetalhamentoOPs");
                 });
 
@@ -113,10 +115,15 @@ namespace API_PRODUCAO.Migrations
                     b.Property<int>("OrdemProducao")
                         .HasColumnType("int");
 
+                    b.Property<int?>("ProducoesOrdemProducao")
+                        .HasColumnType("int");
+
                     b.Property<TimeSpan>("Tempo")
                         .HasColumnType("time");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("ProducoesOrdemProducao");
 
                     b.ToTable("Eficiencia");
                 });
@@ -147,6 +154,9 @@ namespace API_PRODUCAO.Migrations
                     b.Property<int>("OrdemProducao")
                         .HasColumnType("int");
 
+                    b.Property<int?>("ProducoesOrdemProducao")
+                        .HasColumnType("int");
+
                     b.Property<string>("Produto")
                         .HasColumnType("nvarchar(max)");
 
@@ -166,6 +176,8 @@ namespace API_PRODUCAO.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("ProducoesOrdemProducao");
 
                     b.ToTable("Paletizacoes");
                 });
@@ -191,6 +203,8 @@ namespace API_PRODUCAO.Migrations
                         .HasColumnType("int");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("OrdemProducao");
 
                     b.ToTable("Perdas");
                 });
@@ -246,6 +260,53 @@ namespace API_PRODUCAO.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Usuarios");
+                });
+
+            modelBuilder.Entity("API_PRODUCAO.Models.DetalhamentoOP", b =>
+                {
+                    b.HasOne("API_PRODUCAO.Models.Producoes", "Producao")
+                        .WithMany("DetalhamentoOPs")
+                        .HasForeignKey("OrdemProducao")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Producao");
+                });
+
+            modelBuilder.Entity("API_PRODUCAO.Models.Eficiencia", b =>
+                {
+                    b.HasOne("API_PRODUCAO.Models.Producoes", null)
+                        .WithMany("Eficiencia")
+                        .HasForeignKey("ProducoesOrdemProducao");
+                });
+
+            modelBuilder.Entity("API_PRODUCAO.Models.Paletizacao", b =>
+                {
+                    b.HasOne("API_PRODUCAO.Models.Producoes", null)
+                        .WithMany("Paletizacoes")
+                        .HasForeignKey("ProducoesOrdemProducao");
+                });
+
+            modelBuilder.Entity("API_PRODUCAO.Models.Perdas", b =>
+                {
+                    b.HasOne("API_PRODUCAO.Models.Producoes", "Producao")
+                        .WithMany("Perdas")
+                        .HasForeignKey("OrdemProducao")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Producao");
+                });
+
+            modelBuilder.Entity("API_PRODUCAO.Models.Producoes", b =>
+                {
+                    b.Navigation("DetalhamentoOPs");
+
+                    b.Navigation("Eficiencia");
+
+                    b.Navigation("Paletizacoes");
+
+                    b.Navigation("Perdas");
                 });
 #pragma warning restore 612, 618
         }

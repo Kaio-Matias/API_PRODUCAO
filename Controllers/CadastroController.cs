@@ -1,9 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using API_PRODUCAO.Services.Interfaces;
-using API_PRODUCAO.DTOs;
+using Valedourado.Shared.Dtos; // <--- LINHA CORRETA
 using AutoMapper;
-using System.Collections.Generic;
-using System.Threading.Tasks;
 
 namespace API_PRODUCAO.Controllers
 {

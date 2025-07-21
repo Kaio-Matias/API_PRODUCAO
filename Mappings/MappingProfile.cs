@@ -1,8 +1,6 @@
-﻿// ARQUIVO: /Mappings/MappingProfile.cs (na API)
-
+﻿using API_PRODUCAO.Models;
 using AutoMapper;
-using API_PRODUCAO.Models;
-using API_PRODUCAO.DTOs;
+using Valedourado.Shared.Dtos;
 
 namespace API_PRODUCAO.Mappings
 {
@@ -10,21 +8,30 @@ namespace API_PRODUCAO.Mappings
     {
         public MappingProfile()
         {
-            // Mapeamento para criação (DTO -> Entidade)
-            CreateMap<CreatePaleteDto, Paletizacao>();
-            CreateMap<CreateProducaoDto, Producoes>();
+            // Mapeamento para Usuário (O que faltava)
+            CreateMap<Usuarios, UsuarioDto>();
             CreateMap<CreateUsuarioDto, Usuarios>();
 
-            // Mapeamento para leitura (Entidade -> DTO)
-            CreateMap<Cadastro, CadastroDto>();
+            // Mapeamento para Produção
             CreateMap<Producoes, ProducaoDto>();
-            CreateMap<Usuarios, UsuarioDto>();
+            CreateMap<CreateProducaoDto, Producoes>();
 
-            // CORREÇÃO ESTÁ AQUI:
-            // O mapeamento de Paletizacao para PaleteDto agora é direto,
-            // pois assumimos que ambos usam 'string' para a propriedade 'Bloqueio'.
-            // A regra customizada foi removida para evitar o FormatException.
+            // Mapeamento para Paletização
+            CreateMap<CreatePaleteDto, Paletizacao>();
             CreateMap<Paletizacao, PaleteDto>();
+
+            // Mapeamentos para o Relatório Completo
+            CreateMap<Producoes, RelatorioOpCompletoDto>()
+                .ForMember(dest => dest.InfoGeral, opt => opt.MapFrom(src => src))
+                .ForMember(dest => dest.Detalhamentos, opt => opt.MapFrom(src => src.DetalhamentoOPs))
+                .ForMember(dest => dest.Perdas, opt => opt.MapFrom(src => src.Perdas))
+                .ForMember(dest => dest.Paradas, opt => opt.MapFrom(src => src.Eficiencia))
+                .ForMember(dest => dest.Paletes, opt => opt.MapFrom(src => src.Paletizacoes));
+
+            CreateMap<DetalhamentoOP, DetalhamentoOpDto>();
+            CreateMap<Perdas, PerdasOpDto>();
+            CreateMap<Eficiencia, EficienciaOpDto>();
+            CreateMap<Cadastro, CadastroDto>().ReverseMap();
         }
     }
 }

@@ -1,6 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using API_PRODUCAO.Services.Interfaces;
-using API_PRODUCAO.DTOs;
+using Valedourado.Shared.Dtos;
 using API_PRODUCAO.Models;
 using AutoMapper;
 
@@ -54,6 +54,16 @@ namespace API_PRODUCAO.Controllers
             var producaoCriada = await _producaoService.CreateProducaoAsync(producao);
             var resultadoDto = _mapper.Map<ProducaoDto>(producaoCriada);
             return CreatedAtAction(nameof(GetProducao), new { id = resultadoDto.OrdemProducao }, resultadoDto);
+        }
+        [HttpPut("{ordemProducao}/fechar")]
+        public async Task<IActionResult> FecharProducao(int ordemProducao)
+        {
+            var sucesso = await _producaoService.FecharProducaoAsync(ordemProducao);
+            if (!sucesso)
+            {
+                return NotFound($"OP {ordemProducao} não encontrada ou já está fechada.");
+            }
+            return Ok(new { Message = $"Ordem de Produção {ordemProducao} fechada com sucesso." });
         }
     }
 }

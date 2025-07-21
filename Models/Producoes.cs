@@ -12,5 +12,11 @@ namespace API_PRODUCAO.Models
         public string? Status { get; set; }
         public DateTime DataHoraAbertura { get; set; }
         public DateTime? DataHoraFechamento { get; set; }
+
+
+        public virtual ICollection<DetalhamentoOP> DetalhamentoOPs { get; set; }
+        public virtual ICollection<Perdas> Perdas { get; set; }
+        public virtual ICollection<Eficiencia> Eficiencia { get; set; }
+        public virtual ICollection<Paletizacao> Paletizacoes { get; set; }
     }
 }

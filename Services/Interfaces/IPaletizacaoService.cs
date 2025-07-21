@@ -1,12 +1,14 @@
-﻿// Verifique se o namespace está EXATAMENTE assim.
-using API_PRODUCAO.DTOs;
+﻿// No arquivo /Services/Interfaces/IPaletizacaoService.cs
+using Valedourado.Shared.Dtos;
+using API_PRODUCAO.Models;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 
-namespace API_PRODUCAO.Services.Interfaces
+public interface IPaletizacaoService
 {
-    public interface IPaletizacaoService
-    {
-        Task<Models.Paletizacao> CreatePaleteAsync(Models.Paletizacao palete);
-        Task<IEnumerable<Models.Paletizacao>> GetPaletesByOpAsync(int ordemProducao);
-        Task<PaleteDto> UpdateQtdePaleteAsync(int paleteId, UpdateQtdePaleteDto updateDto);
-    }
+    // ALTERE AQUI: O método agora deve aceitar um CreatePaleteDto
+    Task<Paletizacao> CreatePaleteAsync(CreatePaleteDto createPaleteDto);
+
+    Task<IEnumerable<Paletizacao>> GetPaletesByOpAsync(int ordemProducao);
+    Task<PaleteDto> UpdateQtdePaleteAsync(int paleteId, UpdateQtdePaleteDto updateDto);
 }

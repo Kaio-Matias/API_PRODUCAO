@@ -1,8 +1,8 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using API_PRODUCAO.Services.Interfaces;
-using API_PRODUCAO.DTOs;
 using API_PRODUCAO.Models;
 using AutoMapper;
+using Valedourado.Shared.Dtos;
 
 namespace API_PRODUCAO.Controllers
 {

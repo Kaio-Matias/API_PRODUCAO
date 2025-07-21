@@ -8,5 +8,6 @@ namespace API_PRODUCAO.Services.Interfaces
         Task<Producoes?> GetProducaoByIdAsync(int id);
         Task<IEnumerable<Producoes>> GetAllProducoesAsync();
         Task<IEnumerable<Producoes>> GetProducoesAbertasAsync();
+        Task<bool> FecharProducaoAsync(int ordemProducao);
     }
 }

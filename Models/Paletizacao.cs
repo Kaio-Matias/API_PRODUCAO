@@ -20,7 +20,6 @@ namespace API_PRODUCAO.Models
         public int QtdePorPalete { get; set; }
         public int QtdeProduzida { get; set; }
 
-        // CORREÇÃO: Altere o tipo desta propriedade de 'bool' para 'string?'
         public string? Bloqueio { get; set; }
 
         public DateTime DataHoraPaletizacao { get; set; }
