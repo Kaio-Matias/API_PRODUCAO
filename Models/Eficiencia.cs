@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema; // ADICIONE ESTE USING
 using System;
 
 namespace API_PRODUCAO.Models
@@ -7,11 +8,15 @@ namespace API_PRODUCAO.Models
     {
         [Key]
         public int Id { get; set; }
-        public int OrdemProducao { get; set; }
-        public string? Motivo { get; set; }
 
-        // Alterado de decimal para TimeSpan
+        // ADICIONE O ATRIBUTO [ForeignKey] AQUI
+        [ForeignKey("Producao")]
+        public int OrdemProducao { get; set; }
+
+        public string? Motivo { get; set; }
         public TimeSpan Tempo { get; set; }
         public string? Operador { get; set; }
+        public DateTime DataRegistro { get; set; }
+        public virtual Producoes? Producao { get; set; }
     }
 }

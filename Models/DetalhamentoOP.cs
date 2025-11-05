@@ -8,7 +8,7 @@ namespace API_PRODUCAO.Models
         [Key]
         public int Id { get; set; }
 
-        // Esta é a chave estrangeira que aponta para a tabela Producoes
+
         [ForeignKey("Producao")]
         public int OrdemProducao { get; set; }
 

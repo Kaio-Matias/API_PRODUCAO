@@ -20,7 +20,7 @@ namespace API_PRODUCAO.Mappings
             CreateMap<CreatePaleteDto, Paletizacao>();
             CreateMap<Paletizacao, PaleteDto>();
 
-            // Mapeamentos para o Relatório Completo
+            // Mapeamentos para o Relatório Completo (Seus mapeamentos existentes - MANTER)
             CreateMap<Producoes, RelatorioOpCompletoDto>()
                 .ForMember(dest => dest.InfoGeral, opt => opt.MapFrom(src => src))
                 .ForMember(dest => dest.Detalhamentos, opt => opt.MapFrom(src => src.DetalhamentoOPs))
@@ -29,9 +29,17 @@ namespace API_PRODUCAO.Mappings
                 .ForMember(dest => dest.Paletes, opt => opt.MapFrom(src => src.Paletizacoes));
 
             CreateMap<DetalhamentoOP, DetalhamentoOpDto>();
-            CreateMap<Perdas, PerdasOpDto>();
-            CreateMap<Eficiencia, EficienciaOpDto>();
+            CreateMap<Perdas, PerdasOpDto>(); // Mapeamento existente para Relatórios
+            CreateMap<Eficiencia, EficienciaOpDto>(); // Mapeamento existente para Relatórios
             CreateMap<Cadastro, CadastroDto>().ReverseMap();
+
+            // =================================================================
+            // ===== ADICIONE ESTAS DUAS LINHAS PARA CORRIGIR O ERRO 500 =====
+            // =================================================================
+            // Mapeamentos necessários para GetPerdasPorOpEOperador
+            CreateMap<Perdas, PerdasDto>().ReverseMap();
+            // Mapeamentos necessários para GetEficienciaPorOpEOperador
+            CreateMap<Eficiencia, EficienciaDto>().ReverseMap();
         }
     }
 }

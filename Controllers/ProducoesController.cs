@@ -3,6 +3,9 @@ using API_PRODUCAO.Services.Interfaces;
 using Valedourado.Shared.Dtos;
 using API_PRODUCAO.Models;
 using AutoMapper;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using System;
 
 namespace API_PRODUCAO.Controllers
 {
@@ -47,6 +50,22 @@ namespace API_PRODUCAO.Controllers
             return Ok(producoesDto);
         }
 
+        // ===== NOVO ENDPOINT PARA OPs FECHADAS =====
+        [HttpGet("closed/bydate")]
+        public async Task<ActionResult<IEnumerable<ProducaoDto>>> GetClosedProducoesPorData([FromQuery] DateTime startDate, [FromQuery] DateTime endDate)
+        {
+            try
+            {
+                var producoes = await _producaoService.GetClosedProducoesByDateRangeAsync(startDate, endDate);
+                var producoesDto = _mapper.Map<IEnumerable<ProducaoDto>>(producoes);
+                return Ok(producoesDto);
+            }
+            catch (Exception)
+            {
+                return StatusCode(500, "Ocorreu um erro interno ao buscar as produções fechadas por data.");
+            }
+        }
+
         [HttpPost]
         public async Task<ActionResult<ProducaoDto>> PostProducao([FromBody] CreateProducaoDto producaoDto)
         {
@@ -55,6 +74,7 @@ namespace API_PRODUCAO.Controllers
             var resultadoDto = _mapper.Map<ProducaoDto>(producaoCriada);
             return CreatedAtAction(nameof(GetProducao), new { id = resultadoDto.OrdemProducao }, resultadoDto);
         }
+
         [HttpPut("{ordemProducao}/fechar")]
         public async Task<IActionResult> FecharProducao(int ordemProducao)
         {
@@ -65,5 +85,19 @@ namespace API_PRODUCAO.Controllers
             }
             return Ok(new { Message = $"Ordem de Produção {ordemProducao} fechada com sucesso." });
         }
+
+        // ===== NOVO ENDPOINT ADICIONADO =====
+        [HttpPut("{ordemProducao}/cancelar")]
+        public async Task<IActionResult> CancelarProducao(int ordemProducao)
+        {
+            var sucesso = await _producaoService.CancelarProducaoAsync(ordemProducao);
+            if (!sucesso)
+            {
+                // Retorna 404 (Não Encontrado) se a OP não existir ou não puder ser cancelada
+                return NotFound($"OP {ordemProducao} não encontrada ou não pode ser cancelada (pode já estar fechada/cancelada).");
+            }
+            return Ok(new { Message = $"Ordem de Produção {ordemProducao} cancelada com sucesso." });
+        }
+        // ===================================
     }
 }

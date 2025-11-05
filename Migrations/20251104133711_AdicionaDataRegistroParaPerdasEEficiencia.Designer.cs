@@ -12,15 +12,15 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace API_PRODUCAO.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20250721192458_InitialCreat")]
-    partial class InitialCreat
+    [Migration("20251104133711_AdicionaDataRegistroParaPerdasEEficiencia")]
+    partial class AdicionaDataRegistroParaPerdasEEficiencia
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "9.0.7")
+                .HasAnnotation("ProductVersion", "9.0.10")
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
@@ -109,6 +109,9 @@ namespace API_PRODUCAO.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<DateTime>("DataRegistro")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("Motivo")
                         .HasColumnType("nvarchar(max)");
 
@@ -118,15 +121,12 @@ namespace API_PRODUCAO.Migrations
                     b.Property<int>("OrdemProducao")
                         .HasColumnType("int");
 
-                    b.Property<int?>("ProducoesOrdemProducao")
-                        .HasColumnType("int");
-
                     b.Property<TimeSpan>("Tempo")
                         .HasColumnType("time");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ProducoesOrdemProducao");
+                    b.HasIndex("OrdemProducao");
 
                     b.ToTable("Eficiencia");
                 });
@@ -157,9 +157,6 @@ namespace API_PRODUCAO.Migrations
                     b.Property<int>("OrdemProducao")
                         .HasColumnType("int");
 
-                    b.Property<int?>("ProducoesOrdemProducao")
-                        .HasColumnType("int");
-
                     b.Property<string>("Produto")
                         .HasColumnType("nvarchar(max)");
 
@@ -180,7 +177,7 @@ namespace API_PRODUCAO.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ProducoesOrdemProducao");
+                    b.HasIndex("OrdemProducao");
 
                     b.ToTable("Paletizacoes");
                 });
@@ -192,6 +189,9 @@ namespace API_PRODUCAO.Migrations
                         .HasColumnType("int");
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("DataRegistro")
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("Motivo")
                         .HasColumnType("nvarchar(max)");
@@ -278,16 +278,24 @@ namespace API_PRODUCAO.Migrations
 
             modelBuilder.Entity("API_PRODUCAO.Models.Eficiencia", b =>
                 {
-                    b.HasOne("API_PRODUCAO.Models.Producoes", null)
+                    b.HasOne("API_PRODUCAO.Models.Producoes", "Producao")
                         .WithMany("Eficiencia")
-                        .HasForeignKey("ProducoesOrdemProducao");
+                        .HasForeignKey("OrdemProducao")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Producao");
                 });
 
             modelBuilder.Entity("API_PRODUCAO.Models.Paletizacao", b =>
                 {
-                    b.HasOne("API_PRODUCAO.Models.Producoes", null)
+                    b.HasOne("API_PRODUCAO.Models.Producoes", "Producao")
                         .WithMany("Paletizacoes")
-                        .HasForeignKey("ProducoesOrdemProducao");
+                        .HasForeignKey("OrdemProducao")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Producao");
                 });
 
             modelBuilder.Entity("API_PRODUCAO.Models.Perdas", b =>

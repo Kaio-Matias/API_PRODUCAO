@@ -7,16 +7,10 @@ namespace API_PRODUCAO.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class CadastroController : ControllerBase
+    public class CadastroController(ICadastroService cadastroService, IMapper mapper) : ControllerBase
     {
-        private readonly ICadastroService _cadastroService;
-        private readonly IMapper _mapper;
-
-        public CadastroController(ICadastroService cadastroService, IMapper mapper)
-        {
-            _cadastroService = cadastroService;
-            _mapper = mapper;
-        }
+        private readonly ICadastroService _cadastroService = cadastroService;
+        private readonly IMapper _mapper = mapper;
 
         // GET: api/Cadastro
         [HttpGet]

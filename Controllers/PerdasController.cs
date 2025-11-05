@@ -6,6 +6,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System;
 using Microsoft.Extensions.Logging;
+using Microsoft.EntityFrameworkCore; // USING ADICIONADO
+using AutoMapper; // USING ADICIONADO
+using Valedourado.Shared.Dtos; // USING ADICIONADO
 
 namespace API_PRODUCAO.Controllers
 {
@@ -15,11 +18,14 @@ namespace API_PRODUCAO.Controllers
     {
         private readonly AppDbContext _context;
         private readonly ILogger<PerdasController> _logger;
+        private readonly IMapper _mapper; // MAPPER ADICIONADO
 
-        public PerdasController(AppDbContext context, ILogger<PerdasController> logger)
+        // Construtor atualizado para injetar o IMapper
+        public PerdasController(AppDbContext context, ILogger<PerdasController> logger, IMapper mapper)
         {
             _context = context;
             _logger = logger;
+            _mapper = mapper; // MAPPER ATRIBUÍDO
         }
 
         /// <summary>
@@ -42,6 +48,13 @@ namespace API_PRODUCAO.Controllers
 
             try
             {
+                // Adiciona a data/hora do registro antes de salvar
+                var dataRegistro = DateTime.Now;
+                foreach (var perda in perdas)
+                {
+                    perda.DataRegistro = dataRegistro;
+                }
+
                 await _context.Perdas.AddRangeAsync(perdas);
                 await _context.SaveChangesAsync();
 
@@ -54,6 +67,46 @@ namespace API_PRODUCAO.Controllers
                 _logger.LogError(ex, "Ocorreu um erro ao salvar os registos de perdas.");
                 // Retorna uma mensagem de erro 500 genérica para o cliente.
                 return StatusCode(500, "Ocorreu um erro interno no servidor. Por favor, tente novamente mais tarde.");
+            }
+        }
+
+        // ===== NOVO ENDPOINT GET ADICIONADO =====
+        /// <summary>
+        /// Busca todos os registros de perdas para uma OP específica e um operador.
+        /// </summary>
+        [HttpGet("op/{ordemProducao}/operador/{operador}")]
+        [ProducesResponseType(typeof(IEnumerable<PerdasDto>), 200)]
+        [ProducesResponseType(404)]
+        public async Task<ActionResult<IEnumerable<PerdasDto>>> GetPerdasPorOpEOperador(int ordemProducao, string operador)
+        {
+            if (string.IsNullOrEmpty(operador))
+            {
+                return BadRequest("O nome do operador é obrigatório.");
+            }
+
+            try
+            {
+                var registros = await _context.Perdas
+                    .Where(p => p.OrdemProducao == ordemProducao && p.Operador == operador)
+                    .OrderByDescending(p => p.DataRegistro) // Ordena pelos mais recentes
+                    .ToListAsync();
+
+                if (registros == null || !registros.Any())
+                {
+                    // Retorna 404 Not Found se nenhum registro corresponder
+                    return NotFound("Nenhum registro encontrado para esta OP e operador.");
+                }
+
+                // Mapeia a entidade 'Perdas' para 'PerdasDto' para retornar ao cliente
+                // (Assumindo que você tem um DTO 'PerdasDto' e o mapeamento configurado)
+                var registrosDto = _mapper.Map<IEnumerable<PerdasDto>>(registros);
+
+                return Ok(registrosDto);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao buscar registros de perdas por OP e operador.");
+                return StatusCode(500, "Ocorreu um erro interno no servidor.");
             }
         }
     }

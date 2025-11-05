@@ -16,7 +16,7 @@ namespace API_PRODUCAO.Models
         public int Quantidade { get; set; }
         public string? Operador { get; set; }
 
-        // Propriedade de navegação
+        public DateTime DataRegistro { get; set; }
         public virtual Producoes? Producao { get; set; }
     }
 }

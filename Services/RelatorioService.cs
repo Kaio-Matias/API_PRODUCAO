@@ -7,7 +7,13 @@ using iText.IO.Image;
 using iText.Kernel.Font;
 using iText.Kernel.Pdf;
 using iText.Layout.Borders;
-using Valedourado.Shared.Dtos; // Usando APENAS o namespace da biblioteca compartilhada
+using Valedourado.Shared.Dtos;
+using System;
+using System.IO;
+using System.Linq;
+using System.Threading.Tasks;
+using System.Collections.Generic;
+using iText.Kernel.Colors;
 
 // Usando aliases para resolver ambiguidades com a biblioteca iText
 using Document = iText.Layout.Document;
@@ -17,7 +23,7 @@ using Table = iText.Layout.Element.Table;
 using Cell = iText.Layout.Element.Cell;
 using TextAlignment = iText.Layout.Properties.TextAlignment;
 using UnitValue = iText.Layout.Properties.UnitValue;
-using HorizontalAlignment = iText.Layout.Properties.HorizontalAlignment;
+using Text = iText.Layout.Element.Text;
 
 namespace API_PRODUCAO.Services
 {
@@ -30,30 +36,6 @@ namespace API_PRODUCAO.Services
         {
             _context = context;
             _mapper = mapper;
-        }
-
-        // A lógica do GetDashboardDataAsync precisa das propriedades de navegação
-        // que adicionamos nos modelos do banco.
-        public async Task<DashboardDto> GetDashboardDataAsync()
-        {
-            var hoje = DateTime.Today;
-
-            var opsAbertas = await _context.Producoes.CountAsync(p => p.Status == "Aberto");
-
-            var totalProduzido = await _context.DetalhamentoOPs
-                .Where(d => d.Producao.DataHoraAbertura.Date == hoje)
-                .SumAsync(d => d.EmbProduzidas);
-
-            var totalPerdido = await _context.Perdas
-                .Where(p => p.Producao.DataHoraAbertura.Date == hoje)
-                .SumAsync(p => p.Quantidade);
-
-            return new DashboardDto
-            {
-                OpsAbertas = opsAbertas,
-                TotalProduzidoHoje = totalProduzido,
-                TotalPerdidoHoje = totalPerdido
-            };
         }
 
         public async Task<RelatorioOpCompletoDto?> GetRelatorioCompletoOpAsync(int ordemProducao)
@@ -72,6 +54,21 @@ namespace API_PRODUCAO.Services
             return relatorioDto;
         }
 
+        public async Task<DashboardDto> GetDashboardDataAsync()
+        {
+            var hoje = DateTime.Today;
+            var opsAbertas = await _context.Producoes.CountAsync(p => p.Status == "Aberto");
+            var totalProduzido = await _context.DetalhamentoOPs.Where(d => d.Producao.DataHoraAbertura.Date == hoje).SumAsync(d => d.EmbProduzidas);
+            var totalPerdido = await _context.Perdas.Where(p => p.Producao.DataHoraAbertura.Date == hoje).SumAsync(p => p.Quantidade);
+
+            return new DashboardDto
+            {
+                OpsAbertas = opsAbertas,
+                TotalProduzidoHoje = totalProduzido,
+                TotalPerdidoHoje = totalPerdido
+            };
+        }
+
         public async Task<byte[]> GerarPdfDeRelatorioAsync(int ordemProducao)
         {
             var relatorio = await GetRelatorioCompletoOpAsync(ordemProducao);
@@ -83,45 +80,179 @@ namespace API_PRODUCAO.Services
             using var memoryStream = new MemoryStream();
             var writer = new PdfWriter(memoryStream);
             var pdf = new PdfDocument(writer);
-            var document = new Document(pdf, iText.Kernel.Geom.PageSize.A4);
-            document.SetMargins(30, 30, 30, 30);
+            var document = new Document(pdf);
 
             var font = PdfFontFactory.CreateFont(StandardFonts.HELVETICA);
             var boldFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA_BOLD);
+            var italicFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA_OBLIQUE);
 
+            document.SetFont(font).SetFontSize(10);
+
+            // ================== CABEÇALHO ==================
             string imagePath = Path.Combine("wwwroot", "img", "logo.png");
             if (File.Exists(imagePath))
             {
-                var logo = new Image(ImageDataFactory.Create(imagePath)).ScaleToFit(80, 80).SetHorizontalAlignment(HorizontalAlignment.RIGHT);
+                Image logo = new Image(ImageDataFactory.Create(imagePath))
+                    .ScaleToFit(100, 100)
+                    .SetFixedPosition(pdf.GetDefaultPageSize().GetWidth() - 120, pdf.GetDefaultPageSize().GetHeight() - 70);
                 document.Add(logo);
             }
 
-            document.Add(new Paragraph("Relatório de Ordem de Produção")
-                .SetFont(boldFont).SetFontSize(18).SetTextAlignment(TextAlignment.CENTER).SetMarginBottom(20));
+            // TÍTULO ALTERADO
+            document.Add(new Paragraph("TELE SENA DIGITAL")
+                .SetFont(boldFont).SetFontSize(14).SetTextAlignment(TextAlignment.CENTER).SetMarginBottom(20));
 
-            var infoGeral = relatorio.InfoGeral;
-            string dataFechamentoStr = infoGeral.DataHoraFechamento?.ToString("dd/MM/yyyy HH:mm") ?? "N/A";
+            var headerTable = new Table(UnitValue.CreatePercentArray(new float[] { 1, 4 }))
+                .UseAllAvailableWidth().SetMarginBottom(10);
+            headerTable.AddCell(new Cell().Add(new Paragraph("OP").SetFont(boldFont)).SetBorder(Border.NO_BORDER));
+            headerTable.AddCell(new Cell().Add(new Paragraph("Produto").SetFont(boldFont)).SetBorder(Border.NO_BORDER));
+            headerTable.AddCell(new Cell().Add(new Paragraph(relatorio.InfoGeral.OrdemProducao.ToString())).SetBorder(Border.NO_BORDER));
+            headerTable.AddCell(new Cell().Add(new Paragraph(relatorio.InfoGeral.Produto)).SetBorder(Border.NO_BORDER));
+            document.Add(headerTable);
 
-            document.Add(new Paragraph("Informações Gerais").SetFont(boldFont).SetFontSize(14));
-            document.Add(new Paragraph($"OP: {infoGeral.OrdemProducao} | Status: {infoGeral.Status}").SetFont(font).SetFontSize(10));
-            document.Add(new Paragraph($"Produto: {infoGeral.Produto} | Máquina: {infoGeral.Maquina} | Unidade: {infoGeral.Unidade}").SetFont(font).SetFontSize(10));
-            document.Add(new Paragraph($"Abertura: {infoGeral.DataHoraAbertura:dd/MM/yyyy HH:mm} | Fechamento: {dataFechamentoStr}").SetFont(font).SetFontSize(10).SetMarginBottom(15));
+            // ================== BLOCOS DE INFORMAÇÃO ==================
+            Table CreateInfoCell(string label, string value)
+            {
+                var table = new Table(1).UseAllAvailableWidth();
+                table.AddCell(new Cell().Add(new Paragraph(label).SetFont(boldFont).SetTextAlignment(TextAlignment.CENTER)).SetBorder(Border.NO_BORDER));
+                table.AddCell(new Cell().Add(new Paragraph(value).SetTextAlignment(TextAlignment.CENTER)).SetBorder(Border.NO_BORDER));
+                return table;
+            }
 
+            var infoRowTable = new Table(UnitValue.CreatePercentArray(new float[] { 1, 1, 1 }))
+                .UseAllAvailableWidth().SetMarginBottom(5).SetBorderBottom(new SolidBorder(ColorConstants.LIGHT_GRAY, 1));
+            infoRowTable.AddCell(new Cell().Add(CreateInfoCell("Data de Abertura", relatorio.InfoGeral.DataHoraAbertura.ToString("dd/MM/yyyy HH:mm"))).SetBorder(Border.NO_BORDER));
+            infoRowTable.AddCell(new Cell().Add(CreateInfoCell("Data de Fechamento", relatorio.InfoGeral.DataHoraFechamento?.ToString("dd/MM/yyyy HH:mm") ?? "Em Aberto")).SetBorder(Border.NO_BORDER));
+            infoRowTable.AddCell(new Cell().Add(CreateInfoCell("Máquina", relatorio.InfoGeral.Maquina)).SetBorder(Border.NO_BORDER));
+            document.Add(infoRowTable);
+
+            var motivosExcluidos = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            {
+                "AGUARDANDO CAIXA", "AGUARDANDO EMBALAGEM", "AGUARDANDO TURMA",
+                "BOBINA DE TESTE", "CIP", "ESTERILIZAÇÃO", "FALTA DE PRODUTO",
+                "LIMPEZA INTERMEDIARIA", "LIMPEZA SEMANAL", "LUBRIFICAÇÃO",
+                "MANUTENÇÃO PREVENTIVA"
+            };
+
+            TimeSpan horasProdutivas = TimeSpan.Zero;
+            TimeSpan horasTotais = TimeSpan.Zero;
+
+            foreach (var parada in relatorio.Paradas)
+            {
+                if ("PRODUÇÃO".Equals(parada.Motivo, StringComparison.OrdinalIgnoreCase))
+                {
+                    horasProdutivas += parada.Tempo;
+                }
+
+                if (!motivosExcluidos.Contains(parada.Motivo))
+                {
+                    horasTotais += parada.Tempo;
+                }
+            }
+
+            string eficienciaPorTempoStr = "N/A";
+            if (horasTotais.TotalSeconds > 0)
+            {
+                double eficienciaPercentual = (horasProdutivas.TotalSeconds / horasTotais.TotalSeconds);
+                eficienciaPorTempoStr = eficienciaPercentual.ToString("P1");
+            }
+
+            int totalProcessadas = relatorio.Detalhamentos.Sum(d => d.EmbProcessadas);
+            int totalProduzidas = relatorio.Detalhamentos.Sum(d => d.EmbProduzidas);
+            int totalPerdidas = relatorio.Detalhamentos.Sum(d => d.EmbPerdidas);
+            string perdasStr = totalProcessadas > 0 ? $"({(double)totalPerdidas / totalProcessadas:P1})" : "";
+
+            var embalagensTable = new Table(UnitValue.CreatePercentArray(new float[] { 1, 1, 1, 1 }))
+                .UseAllAvailableWidth().SetMarginBottom(20).SetBorderBottom(new SolidBorder(ColorConstants.LIGHT_GRAY, 1));
+            embalagensTable.AddCell(new Cell().Add(CreateInfoCell("Embalagens Processadas", totalProcessadas.ToString())).SetBorder(Border.NO_BORDER));
+            embalagensTable.AddCell(new Cell().Add(CreateInfoCell("Embalagens Produzidas", totalProduzidas.ToString())).SetBorder(Border.NO_BORDER));
+            embalagensTable.AddCell(new Cell().Add(CreateInfoCell("Embalagens Perdidas", $"{totalPerdidas} {perdasStr}")).SetBorder(Border.NO_BORDER));
+            embalagensTable.AddCell(new Cell().Add(CreateInfoCell("Eficiência", eficienciaPorTempoStr)).SetBorder(Border.NO_BORDER));
+            document.Add(embalagensTable);
+
+            // ================== TABELAS DE DETALHAMENTO ==================
+            var sideBySideTable = new Table(UnitValue.CreatePercentArray(new float[] { 1, 1 }))
+                .UseAllAvailableWidth().SetMarginBottom(10);
+
+            var perdasTable = new Table(UnitValue.CreatePercentArray(new float[] { 3, 1 })).UseAllAvailableWidth();
+            perdasTable.AddHeaderCell(new Cell(1, 2).Add(new Paragraph("Detalhamento de Perdas").SetFont(boldFont).SetTextAlignment(TextAlignment.CENTER)).SetBorderBottom(new SolidBorder(1)));
+            perdasTable.AddHeaderCell(new Cell().Add(new Paragraph("Motivo").SetFont(boldFont).SetTextAlignment(TextAlignment.CENTER)).SetBorder(Border.NO_BORDER));
+            perdasTable.AddHeaderCell(new Cell().Add(new Paragraph("Quantidade").SetFont(boldFont).SetTextAlignment(TextAlignment.CENTER)).SetBorder(Border.NO_BORDER));
             if (relatorio.Perdas.Any())
             {
-                document.Add(new Paragraph("Registros de Perdas").SetFont(boldFont).SetFontSize(14).SetMarginTop(10));
-                var perdasTable = new Table(UnitValue.CreatePercentArray(new float[] { 3, 1, 2 })).UseAllAvailableWidth();
-                perdasTable.AddHeaderCell(new Cell().Add(new Paragraph("Motivo").SetFont(boldFont)));
-                perdasTable.AddHeaderCell(new Cell().Add(new Paragraph("Quantidade").SetFont(boldFont)));
-                perdasTable.AddHeaderCell(new Cell().Add(new Paragraph("Operador").SetFont(boldFont)));
                 foreach (var perda in relatorio.Perdas)
                 {
-                    perdasTable.AddCell(perda.Motivo ?? "");
-                    perdasTable.AddCell(perda.Quantidade.ToString());
-                    perdasTable.AddCell(perda.Operador ?? "");
+                    perdasTable.AddCell(new Cell().Add(new Paragraph(perda.Motivo)).SetBorder(Border.NO_BORDER));
+                    perdasTable.AddCell(new Cell().Add(new Paragraph(perda.Quantidade.ToString())).SetBorder(Border.NO_BORDER).SetTextAlignment(TextAlignment.RIGHT));
                 }
-                document.Add(perdasTable.SetMarginBottom(15));
             }
+            else
+            {
+                perdasTable.AddCell(new Cell(1, 2).Add(new Paragraph("Nenhum registro de perda.").SetFont(italicFont)).SetBorder(Border.NO_BORDER));
+            }
+            sideBySideTable.AddCell(new Cell().Add(perdasTable).SetBorder(Border.NO_BORDER).SetPaddingRight(10));
+
+            var paradasTable = new Table(UnitValue.CreatePercentArray(new float[] { 3, 1 })).UseAllAvailableWidth();
+            paradasTable.AddHeaderCell(new Cell(1, 2).Add(new Paragraph("Detalhamento de Paradas").SetFont(boldFont).SetTextAlignment(TextAlignment.CENTER)).SetBorderBottom(new SolidBorder(1)));
+            paradasTable.AddHeaderCell(new Cell().Add(new Paragraph("Motivo").SetFont(boldFont).SetTextAlignment(TextAlignment.CENTER)).SetBorder(Border.NO_BORDER));
+            paradasTable.AddHeaderCell(new Cell().Add(new Paragraph("Tempo").SetFont(boldFont).SetTextAlignment(TextAlignment.CENTER)).SetBorder(Border.NO_BORDER));
+            if (relatorio.Paradas.Any())
+            {
+                foreach (var parada in relatorio.Paradas)
+                {
+                    paradasTable.AddCell(new Cell().Add(new Paragraph(parada.Motivo)).SetBorder(Border.NO_BORDER));
+                    paradasTable.AddCell(new Cell().Add(new Paragraph(parada.Tempo.ToString(@"hh\:mm"))).SetBorder(Border.NO_BORDER).SetTextAlignment(TextAlignment.RIGHT));
+                }
+            }
+            else
+            {
+                paradasTable.AddCell(new Cell(1, 2).Add(new Paragraph("Nenhum registro de parada.").SetFont(italicFont)).SetBorder(Border.NO_BORDER));
+            }
+            sideBySideTable.AddCell(new Cell().Add(paradasTable).SetBorder(Border.NO_BORDER).SetPaddingLeft(10));
+            document.Add(sideBySideTable);
+
+            // ================== TABELA DE PALETIZAÇÃO ==================
+            document.Add(new Paragraph("Detalhamento de Paletização").SetFont(boldFont).SetFontSize(12).SetMarginTop(15));
+            var paleteTable = new Table(UnitValue.CreatePercentArray(new float[] { 1, 1.5f, 1, 2, 2 }))
+                .UseAllAvailableWidth().SetMarginTop(5);
+            paleteTable.AddHeaderCell(new Cell().Add(new Paragraph("N° Palete").SetFont(boldFont).SetTextAlignment(TextAlignment.CENTER)));
+            paleteTable.AddHeaderCell(new Cell().Add(new Paragraph("Quantidade por Palete").SetFont(boldFont).SetTextAlignment(TextAlignment.CENTER)));
+            paleteTable.AddHeaderCell(new Cell().Add(new Paragraph("Unidade").SetFont(boldFont).SetTextAlignment(TextAlignment.CENTER)));
+            paleteTable.AddHeaderCell(new Cell().Add(new Paragraph("Usuário").SetFont(boldFont).SetTextAlignment(TextAlignment.CENTER)));
+            paleteTable.AddHeaderCell(new Cell().Add(new Paragraph("Data/Hora").SetFont(boldFont).SetTextAlignment(TextAlignment.CENTER)));
+
+            if (relatorio.Paletes.Any())
+            {
+                int totalQtdePalete = 0;
+                string unidade = relatorio.Paletes.First().Unidade ?? "";
+
+                foreach (var palete in relatorio.Paletes.OrderBy(p => p.N_Palete))
+                {
+                    paleteTable.AddCell(new Cell().Add(new Paragraph(palete.N_Palete.ToString()).SetTextAlignment(TextAlignment.CENTER)));
+                    paleteTable.AddCell(new Cell().Add(new Paragraph(palete.QtdePorPalete.ToString()).SetTextAlignment(TextAlignment.CENTER)));
+                    paleteTable.AddCell(new Cell().Add(new Paragraph(palete.Unidade ?? "-").SetTextAlignment(TextAlignment.CENTER)));
+                    paleteTable.AddCell(new Cell().Add(new Paragraph(palete.Usuario).SetTextAlignment(TextAlignment.CENTER)));
+                    paleteTable.AddCell(new Cell().Add(new Paragraph(palete.DataHoraPaletizacao.ToString("dd/MM/yyyy HH:mm")).SetTextAlignment(TextAlignment.CENTER)));
+
+                    totalQtdePalete += palete.QtdePorPalete;
+                }
+
+                paleteTable.AddCell(new Cell(1, 1).Add(new Paragraph("Total:").SetFont(boldFont).SetTextAlignment(TextAlignment.RIGHT)).SetBorder(Border.NO_BORDER));
+                paleteTable.AddCell(new Cell(1, 4).Add(new Paragraph($"{totalQtdePalete} {unidade}").SetFont(boldFont)).SetBorder(Border.NO_BORDER));
+            }
+            else
+            {
+                paleteTable.AddCell(new Cell(1, 5).Add(new Paragraph("Nenhum palete registrado.").SetFont(italicFont).SetTextAlignment(TextAlignment.CENTER)));
+            }
+            document.Add(paleteTable);
+
+            // ================== RODAPÉ ==================
+            var operadores = string.Join(", ", relatorio.Detalhamentos.Select(d => d.Operador).Distinct());
+            var pistoladores = string.Join(", ", relatorio.Paletes.Select(p => p.Usuario).Distinct());
+
+            document.Add(new Paragraph($"Operador(es): {operadores}")
+                .SetMarginTop(30));
+            document.Add(new Paragraph($"Pistolador(es): {pistoladores}"));
 
             document.Close();
             return memoryStream.ToArray();

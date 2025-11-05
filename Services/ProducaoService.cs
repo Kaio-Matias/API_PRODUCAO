@@ -90,5 +90,53 @@ namespace API_PRODUCAO.Services
 
             return true;
         }
+
+        // ===== NOVO MÉTODO ADICIONADO =====
+        /// <summary>
+        /// Altera o status de uma Ordem de Produção para "Cancelado" e registra a data/hora.
+        /// </summary>
+        /// <param name="ordemProducao">O número da OP a ser cancelada.</param>
+        /// <returns>Retorna 'true' se a operação foi bem-sucedida, e 'false' se a OP não foi encontrada ou já estava fechada/cancelada.</returns>
+        public async Task<bool> CancelarProducaoAsync(int ordemProducao)
+        {
+            var producao = await _context.Producoes
+                .FirstOrDefaultAsync(p => p.OrdemProducao == ordemProducao);
+
+            // Não pode cancelar uma OP que não existe ou que não está "Aberto"
+            if (producao == null || producao.Status != "Aberto")
+            {
+                return false;
+            }
+
+            producao.Status = "Cancelado";
+            producao.DataHoraFechamento = DateTime.Now; // Registra quando foi cancelada
+
+            await _context.SaveChangesAsync();
+            return true;
+        }
+        // ===================================
+
+        public async Task<IEnumerable<Producoes>> GetProducoesByDateRangeAsync(DateTime startDate, DateTime endDate)
+        {
+            // Garante que o filtro inclua o dia final inteiro (até 23:59:59)
+            var finalEndDate = endDate.Date.AddDays(1).AddTicks(-1);
+
+            return await _context.Producoes
+                .Where(p => p.DataHoraAbertura >= startDate.Date && p.DataHoraAbertura <= finalEndDate)
+                .OrderByDescending(p => p.OrdemProducao)
+                .ToListAsync();
+        }
+
+        public async Task<IEnumerable<Producoes>> GetClosedProducoesByDateRangeAsync(DateTime startDate, DateTime endDate)
+        {
+            var finalEndDate = endDate.Date.AddDays(1).AddTicks(-1);
+
+            return await _context.Producoes
+                .Where(p => p.Status == "Fechado" &&
+                             p.DataHoraAbertura.Date >= startDate.Date &&
+                             p.DataHoraAbertura.Date <= finalEndDate)
+                .OrderByDescending(p => p.OrdemProducao)
+                .ToListAsync();
+        }
     }
 }

@@ -7,14 +7,9 @@ namespace API_PRODUCAO.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class DetalhamentoOPController : ControllerBase
+    public class DetalhamentoOPController(AppDbContext context) : ControllerBase
     {
-        private readonly AppDbContext _context;
-
-        public DetalhamentoOPController(AppDbContext context)
-        {
-            _context = context;
-        }
+        private readonly AppDbContext _context = context;
 
         // POST: api/DetalhamentoOP
         [HttpPost]
