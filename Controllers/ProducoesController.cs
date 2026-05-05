@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using API_PRODUCAO.Services.Interfaces;
 using Valedourado.Shared.Dtos;
 using API_PRODUCAO.Models;
@@ -75,10 +75,20 @@ namespace API_PRODUCAO.Controllers
             return CreatedAtAction(nameof(GetProducao), new { id = resultadoDto.OrdemProducao }, resultadoDto);
         }
 
-        [HttpPut("{ordemProducao}/fechar")]
-        public async Task<IActionResult> FecharProducao(int ordemProducao)
+        [HttpPut("{id}")]
+        public async Task<ActionResult<ProducaoDto>> PutProducao(int id, [FromBody] ProducaoDto producaoDto)
         {
-            var sucesso = await _producaoService.FecharProducaoAsync(ordemProducao);
+            var producao = _mapper.Map<Producoes>(producaoDto);
+            var updated = await _producaoService.UpdateProducaoAsync(id, producao);
+            if (updated == null) return NotFound();
+
+            return Ok(_mapper.Map<ProducaoDto>(updated));
+        }
+
+        [HttpPut("{ordemProducao}/fechar")]
+        public async Task<IActionResult> FecharProducao(int ordemProducao, [FromQuery] string? supervisor = null)
+        {
+            var sucesso = await _producaoService.FecharProducaoAsync(ordemProducao, supervisor);
             if (!sucesso)
             {
                 return NotFound($"OP {ordemProducao} não encontrada ou já está fechada.");
@@ -97,6 +107,17 @@ namespace API_PRODUCAO.Controllers
                 return NotFound($"OP {ordemProducao} não encontrada ou não pode ser cancelada (pode já estar fechada/cancelada).");
             }
             return Ok(new { Message = $"Ordem de Produção {ordemProducao} cancelada com sucesso." });
+        }
+
+        [HttpDelete("{ordemProducao}")]
+        public async Task<IActionResult> DeleteProducao(int ordemProducao)
+        {
+            var sucesso = await _producaoService.DeleteProducaoAsync(ordemProducao);
+            if (!sucesso)
+            {
+                return NotFound($"OP {ordemProducao} não encontrada.");
+            }
+            return Ok(new { Message = $"Ordem de Produção {ordemProducao} e todos os seus registros atrelados foram excluídos com sucesso." });
         }
         // ===================================
     }

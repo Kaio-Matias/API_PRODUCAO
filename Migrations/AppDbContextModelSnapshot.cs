@@ -30,6 +30,9 @@ namespace API_PRODUCAO.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<string>("Classe")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("CodBarra")
                         .HasColumnType("nvarchar(max)");
 
@@ -48,6 +51,9 @@ namespace API_PRODUCAO.Migrations
                     b.Property<double>("PesoTotalPalete")
                         .HasColumnType("float");
 
+                    b.Property<decimal>("PrecoUnitario")
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<string>("Produto")
                         .HasColumnType("nvarchar(max)");
 
@@ -63,6 +69,28 @@ namespace API_PRODUCAO.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Cadastros");
+                });
+
+            modelBuilder.Entity("API_PRODUCAO.Models.CaptacaoLeite", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("DataRecebimento")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Observacao")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<double>("VolumeRecebido")
+                        .HasColumnType("float");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("CaptacoesLeite");
                 });
 
             modelBuilder.Entity("API_PRODUCAO.Models.DetalhamentoOP", b =>
@@ -106,6 +134,12 @@ namespace API_PRODUCAO.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<DateTime?>("DataHoraFim")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("DataHoraInicio")
+                        .HasColumnType("datetime2");
+
                     b.Property<DateTime>("DataRegistro")
                         .HasColumnType("datetime2");
 
@@ -118,7 +152,7 @@ namespace API_PRODUCAO.Migrations
                     b.Property<int>("OrdemProducao")
                         .HasColumnType("int");
 
-                    b.Property<TimeSpan>("Tempo")
+                    b.Property<TimeSpan?>("Tempo")
                         .HasColumnType("time");
 
                     b.HasKey("Id");
@@ -126,6 +160,194 @@ namespace API_PRODUCAO.Migrations
                     b.HasIndex("OrdemProducao");
 
                     b.ToTable("Eficiencia");
+                });
+
+            modelBuilder.Entity("API_PRODUCAO.Models.EstoqueAgranel", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("CodigoAgranel")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("DescricaoAgranel")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Observacoes")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<double>("SaldoLitros")
+                        .HasColumnType("float");
+
+                    b.Property<DateTime>("UltimaAtualizacao")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal>("ValorUnitario")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("EstoqueAgranel");
+                });
+
+            modelBuilder.Entity("API_PRODUCAO.Models.IndicadorAgranel", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("CodigoAgranel")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<double>("Consumo")
+                        .HasColumnType("float");
+
+                    b.Property<DateTime>("DataReferencia")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("DescricaoAgranel")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<double>("Final")
+                        .HasColumnType("float");
+
+                    b.Property<double>("Inicial")
+                        .HasColumnType("float");
+
+                    b.Property<string>("Observacoes")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<double>("PercentualPerda")
+                        .HasColumnType("float");
+
+                    b.Property<decimal>("PerdaValorizada")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<double>("Perdas")
+                        .HasColumnType("float");
+
+                    b.Property<double>("Preparado")
+                        .HasColumnType("float");
+
+                    b.Property<decimal>("ValorUnitario")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("IndicadoresAgranel");
+                });
+
+            modelBuilder.Entity("API_PRODUCAO.Models.MetaCaptacaoLeite", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("Ano")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Mes")
+                        .HasColumnType("int");
+
+                    b.Property<double>("MetaLitros")
+                        .HasColumnType("float");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("MetasCaptacaoLeite");
+                });
+
+            modelBuilder.Entity("API_PRODUCAO.Models.MetaProducao", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("Ano")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Classe")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("CodProduto")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("Mes")
+                        .HasColumnType("int");
+
+                    b.Property<double>("MetaCaixas")
+                        .HasColumnType("float");
+
+                    b.Property<double>("MetaKg")
+                        .HasColumnType("float");
+
+                    b.Property<double>("MetaRS")
+                        .HasColumnType("float");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("MetasProducao");
+                });
+
+            modelBuilder.Entity("API_PRODUCAO.Models.MovimentoEstoqueAgranel", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("CodigoAgranel")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<DateTime>("DataMovimento")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Observacao")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<double>("QuantidadeLitros")
+                        .HasColumnType("float");
+
+                    b.Property<string>("Referencia")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<double>("SaldoAnterior")
+                        .HasColumnType("float");
+
+                    b.Property<double>("SaldoPosterior")
+                        .HasColumnType("float");
+
+                    b.Property<string>("TipoMovimento")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<string>("Usuario")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("MovimentosEstoqueAgranel");
                 });
 
             modelBuilder.Entity("API_PRODUCAO.Models.Paletizacao", b =>
@@ -217,11 +439,17 @@ namespace API_PRODUCAO.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("OrdemProducao"));
 
+                    b.Property<string>("CodigoAgranel")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<DateTime>("DataHoraAbertura")
                         .HasColumnType("datetime2");
 
                     b.Property<DateTime?>("DataHoraFechamento")
                         .HasColumnType("datetime2");
+
+                    b.Property<double>("FatorConversaoLiters")
+                        .HasColumnType("float");
 
                     b.Property<string>("Maquina")
                         .HasColumnType("nvarchar(max)");
@@ -230,6 +458,9 @@ namespace API_PRODUCAO.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Status")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("SupervisorFechamento")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Unidade")
@@ -254,12 +485,50 @@ namespace API_PRODUCAO.Migrations
                     b.Property<int?>("Matricula")
                         .HasColumnType("int");
 
+                    b.Property<string>("ModulosAcesso")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("Nome")
                         .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
 
                     b.ToTable("Usuarios");
+                });
+
+            modelBuilder.Entity("API_PRODUCAO.Models.VinculoAgranelAcabado", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("CodigoAgranel")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("CodigoProdutoAcabado")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("DescricaoAgranel")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("DescricaoProdutoAcabado")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<double>("LitrosPorCaixa")
+                        .HasColumnType("float");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("VinculosAgranelAcabado");
                 });
 
             modelBuilder.Entity("API_PRODUCAO.Models.DetalhamentoOP", b =>

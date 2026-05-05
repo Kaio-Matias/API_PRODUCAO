@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using API_PRODUCAO.Data;
 using API_PRODUCAO.Models;
 using System.Threading.Tasks;
@@ -70,7 +70,28 @@ namespace API_PRODUCAO.Controllers
             }
         }
 
-        // ===== NOVO ENDPOINT GET ADICIONADO =====
+        // GET: api/Perdas/op/1143 (todas as perdas de uma OP, sem filtro por operador)
+        [HttpGet("op/{ordemProducao}")]
+        public async Task<ActionResult<IEnumerable<PerdasDto>>> GetPerdasPorOp(int ordemProducao)
+        {
+            try
+            {
+                var registros = await _context.Perdas
+                    .Where(p => p.OrdemProducao == ordemProducao)
+                    .OrderByDescending(p => p.DataRegistro)
+                    .ToListAsync();
+
+                var registrosDto = _mapper.Map<IEnumerable<PerdasDto>>(registros);
+                return Ok(registrosDto);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erro ao buscar registros de perdas por OP.");
+                return StatusCode(500, "Ocorreu um erro interno no servidor.");
+            }
+        }
+
+        // ===== ENDPOINT GET POR OP + OPERADOR =====
         /// <summary>
         /// Busca todos os registros de perdas para uma OP específica e um operador.
         /// </summary>
@@ -108,6 +129,53 @@ namespace API_PRODUCAO.Controllers
                 _logger.LogError(ex, "Erro ao buscar registros de perdas por OP e operador.");
                 return StatusCode(500, "Ocorreu um erro interno no servidor.");
             }
+        }
+        // PUT: api/Perdas/5
+        [HttpPut("{id}")]
+        public async Task<IActionResult> PutPerda(int id, [FromBody] PerdasDto dto)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
+            if (id != dto.Id) return BadRequest("ID inconsistente.");
+
+            var existing = await _context.Perdas
+                .Include(p => p.Producao)
+                .FirstOrDefaultAsync(p => p.Id == id);
+
+            if (existing == null) return NotFound();
+            if (existing.Producao?.Status != "Aberto") return BadRequest("Não é possível editar lançamentos de uma OP fechada.");
+
+            existing.Motivo = dto.Motivo;
+            existing.Quantidade = dto.Quantidade;
+            existing.Operador = dto.Operador; 
+            
+            if (dto.OrdemProducao.HasValue)
+            {
+                existing.OrdemProducao = dto.OrdemProducao.Value;
+            }
+
+            await _context.SaveChangesAsync();
+            return NoContent();
+        }
+
+        // DELETE: api/Perdas/5
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> DeletePerda(int id)
+        {
+            var perda = await _context.Perdas
+                .Include(p => p.Producao)
+                .FirstOrDefaultAsync(p => p.Id == id);
+
+            if (perda == null) return NotFound();
+            if (perda.Producao?.Status != "Aberto") return BadRequest("Não é possível excluir lançamentos de uma OP fechada.");
+
+            _context.Perdas.Remove(perda);
+            await _context.SaveChangesAsync();
+
+            return NoContent();
         }
     }
 }

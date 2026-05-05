@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using API_PRODUCAO.Data;
 using API_PRODUCAO.Models;
 using System.Threading.Tasks;
@@ -6,9 +6,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System;
 using Microsoft.Extensions.Logging;
-using Microsoft.EntityFrameworkCore; // USING ADICIONADO
-using AutoMapper; // USING ADICIONADO
-using Valedourado.Shared.Dtos; // USING ADICIONADO
+using Microsoft.EntityFrameworkCore;
+using AutoMapper;
+using Valedourado.Shared.Dtos;
 
 namespace API_PRODUCAO.Controllers
 {
@@ -18,95 +18,212 @@ namespace API_PRODUCAO.Controllers
     {
         private readonly AppDbContext _context;
         private readonly ILogger<EficienciaController> _logger;
-        private readonly IMapper _mapper; // MAPPER ADICIONADO
+        private readonly IMapper _mapper;
 
-        // Construtor atualizado para injetar o IMapper
         public EficienciaController(AppDbContext context, ILogger<EficienciaController> logger, IMapper mapper)
         {
             _context = context;
-            _logger = logger;
-            _mapper = mapper; // MAPPER ATRIBUÍDO
+            _logger  = logger;
+            _mapper  = mapper;
         }
 
+        // ── POST /api/Eficiencia ───────────────────────────────────
         /// <summary>
-        /// Recebe e salva uma lista de registos de tempo de eficiência.
+        /// Inicia uma nova parada. Captura DataHoraInicio = agora no servidor.
         /// </summary>
-        /// <param name="registos">Uma lista de objetos de Eficiencia.</param>
-        /// <returns>Uma resposta de sucesso ou um erro.</returns>
         [HttpPost]
-        public async Task<IActionResult> PostEficiencia([FromBody] List<Eficiencia> registos)
+        public async Task<ActionResult<EficienciaDto>> IniciarParada([FromBody] CreateEficienciaDto dto)
         {
-            if (registos == null || !registos.Any())
-            {
-                return BadRequest("A lista de registos de eficiência não pode estar vazia.");
-            }
+            if (dto == null || dto.OrdemProducao <= 0 || string.IsNullOrWhiteSpace(dto.Motivo))
+                return BadRequest("OrdemProducao e Motivo são obrigatórios.");
 
-            // --- CORREÇÃO AQUI ---
-            // Compara o tempo com TimeSpan.Zero em vez de 0.
-            if (registos.Any(r => r.OrdemProducao <= 0 || string.IsNullOrEmpty(r.Motivo) || r.Tempo < TimeSpan.Zero))
-            {
-                return BadRequest("Um ou mais registos de eficiência contêm dados inválidos.");
-            }
+            var op = await _context.Producoes.FirstOrDefaultAsync(p => p.OrdemProducao == dto.OrdemProducao);
+            if (op == null)         return NotFound("Ordem de Produção não encontrada.");
+            if (op.Status != "Aberto") return BadRequest("Não é possível registrar paradas em uma OP que não está aberta.");
 
-            try
-            {
-                // Adiciona a data/hora do registro antes de salvar
-                var dataRegistro = DateTime.Now;
-                foreach (var registro in registos)
-                {
-                    registro.DataRegistro = dataRegistro;
-                }
+            // Modo manual: valida que fim > início quando ambos são fornecidos
+            if (dto.DataHoraInicio.HasValue && dto.DataHoraFim.HasValue
+                && dto.DataHoraFim.Value <= dto.DataHoraInicio.Value)
+                return BadRequest("A hora de fim deve ser posterior à hora de início.");
 
-                await _context.Eficiencia.AddRangeAsync(registos);
-                await _context.SaveChangesAsync();
+            var inicio = dto.DataHoraInicio ?? DateTime.Now;
+            var fim    = dto.DataHoraFim;
 
-                _logger.LogInformation($"{registos.Count} registo(s) de eficiência foram salvos com sucesso para a OP: {registos.First().OrdemProducao}.");
-                return Ok(new { Message = $"{registos.Count} registo(s) de eficiência foram salvos com sucesso." });
-            }
-            catch (Exception ex)
+            var parada = new Eficiencia
             {
-                _logger.LogError(ex, "Ocorreu um erro ao salvar os registos de eficiência.");
-                return StatusCode(500, "Ocorreu um erro interno no servidor ao salvar os registos de eficiência.");
-            }
+                OrdemProducao  = dto.OrdemProducao,
+                Motivo         = dto.Motivo,
+                Operador       = dto.Operador,
+                DataHoraInicio = inicio,
+                DataHoraFim    = fim,
+                Tempo          = fim.HasValue ? fim.Value - inicio : null,
+                DataRegistro   = DateTime.Now,
+            };
+
+            _context.Eficiencia.Add(parada);
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation("Parada iniciada — OP {Op}, Motivo: {Motivo}, Início: {Inicio}",
+                dto.OrdemProducao, dto.Motivo, parada.DataHoraInicio);
+
+            return CreatedAtAction(nameof(GetParadaPorId), new { id = parada.Id }, MapToDto(parada));
         }
 
-        // ===== NOVO ENDPOINT GET ADICIONADO =====
+        // ── PUT /api/Eficiencia/{id}/finalizar ─────────────────────
         /// <summary>
-        /// Busca todos os registros de eficiência para uma OP específica e um operador.
+        /// Finaliza uma parada em andamento. Captura DataHoraFim = agora e calcula Tempo.
+        /// Usa UPDATE condicional (WHERE DataHoraFim IS NULL) para evitar dupla finalização concorrente.
         /// </summary>
-        [HttpGet("op/{ordemProducao}/operador/{operador}")]
-        [ProducesResponseType(typeof(IEnumerable<EficienciaDto>), 200)]
-        [ProducesResponseType(404)]
-        public async Task<ActionResult<IEnumerable<EficienciaDto>>> GetEficienciaPorOpEOperador(int ordemProducao, string operador)
+        [HttpPut("{id}/finalizar")]
+        public async Task<ActionResult<EficienciaDto>> FinalizarParada(int id)
         {
-            if (string.IsNullOrEmpty(operador))
+            var fim = DateTime.Now;
+
+            // Atualização atômica: só age se DataHoraFim ainda for null no banco.
+            var affected = await _context.Eficiencia
+                .Where(e => e.Id == id && e.DataHoraFim == null)
+                .ExecuteUpdateAsync(s => s.SetProperty(e => e.DataHoraFim, fim));
+
+            if (affected == 0)
             {
-                return BadRequest("O nome do operador é obrigatório.");
+                var existe = await _context.Eficiencia.AnyAsync(e => e.Id == id);
+                return existe
+                    ? BadRequest("Esta parada já foi finalizada.")
+                    : NotFound("Parada não encontrada.");
             }
 
-            try
-            {
-                var registros = await _context.Eficiencia
-                    .Where(e => e.OrdemProducao == ordemProducao && e.Operador == operador)
-                    .OrderByDescending(e => e.DataRegistro) // Ordena pelos mais recentes
-                    .ToListAsync();
+            // Recarrega para calcular Tempo e validar status da OP.
+            var parada = await _context.Eficiencia
+                .Include(e => e.Producao)
+                .FirstAsync(e => e.Id == id);
 
-                if (registros == null || !registros.Any())
-                {
-                    // Retorna 404 Not Found se nenhum registro corresponder
-                    return NotFound("Nenhum registro encontrado para esta OP e operador.");
-                }
+            if (parada.Producao?.Status != "Aberto")
+                return BadRequest("A OP desta parada não está mais aberta.");
 
-                // Mapeia a entidade 'Eficiencia' para 'EficienciaDto'
-                var registrosDto = _mapper.Map<IEnumerable<EficienciaDto>>(registros);
+            parada.Tempo = fim - parada.DataHoraInicio;
+            await _context.SaveChangesAsync();
 
-                return Ok(registrosDto);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Erro ao buscar registros de eficiência por OP e operador.");
-                return StatusCode(500, "Ocorreu um erro interno no servidor.");
-            }
+            _logger.LogInformation("Parada finalizada — ID {Id}, Duração: {Dur}", id, parada.Tempo);
+
+            return Ok(MapToDto(parada));
         }
+
+        // ── GET /api/Eficiencia/op/{op} ───────────────────────────
+        /// <summary>Todas as paradas (ativas + concluídas) de uma OP.</summary>
+        [HttpGet("op/{ordemProducao}")]
+        public async Task<ActionResult<IEnumerable<EficienciaDto>>> GetParadasPorOp(int ordemProducao)
+        {
+            var lista = await _context.Eficiencia
+                .Where(e => e.OrdemProducao == ordemProducao)
+                .OrderByDescending(e => e.DataHoraInicio)
+                .ToListAsync();
+
+            return Ok(lista.Select(MapToDto));
+        }
+
+        // ── GET /api/Eficiencia/op/{op}/ativas ────────────────────
+        /// <summary>Somente paradas em andamento (sem DataHoraFim) de uma OP.</summary>
+        [HttpGet("op/{ordemProducao}/ativas")]
+        public async Task<ActionResult<IEnumerable<EficienciaDto>>> GetParadasAtivas(int ordemProducao)
+        {
+            var lista = await _context.Eficiencia
+                .Where(e => e.OrdemProducao == ordemProducao && e.DataHoraFim == null)
+                .OrderBy(e => e.DataHoraInicio)
+                .ToListAsync();
+
+            return Ok(lista.Select(MapToDto));
+        }
+
+        // ── GET /api/Eficiencia/{id} ──────────────────────────────
+        [HttpGet("{id}")]
+        public async Task<ActionResult<EficienciaDto>> GetParadaPorId(int id)
+        {
+            var p = await _context.Eficiencia.FindAsync(id);
+            if (p == null) return NotFound();
+            return Ok(MapToDto(p));
+        }
+
+        // ── GET /api/Eficiencia/op/{op}/operador/{operador} ───────
+        [HttpGet("op/{ordemProducao}/operador/{operador}")]
+        public async Task<ActionResult<IEnumerable<EficienciaDto>>> GetPorOpEOperador(
+            int ordemProducao, string operador)
+        {
+            if (string.IsNullOrEmpty(operador)) return BadRequest("Operador obrigatório.");
+
+            var lista = await _context.Eficiencia
+                .Where(e => e.OrdemProducao == ordemProducao && e.Operador == operador)
+                .OrderByDescending(e => e.DataHoraInicio)
+                .ToListAsync();
+
+            if (!lista.Any()) return NotFound("Nenhum registro encontrado.");
+
+            return Ok(lista.Select(MapToDto));
+        }
+
+        // ── PUT /api/Eficiencia/{id} (editar motivo/operador/timestamps) ──
+        [HttpPut("{id}")]
+        public async Task<IActionResult> AtualizarParada(int id, [FromBody] UpdateEficienciaDto dto)
+        {
+            if (id != dto.Id) return BadRequest("ID inconsistente.");
+
+            var parada = await _context.Eficiencia
+                .Include(e => e.Producao)
+                .FirstOrDefaultAsync(e => e.Id == id);
+
+            if (parada == null) return NotFound();
+            if (parada.Producao?.Status != "Aberto")
+                return BadRequest("Não é possível editar lançamentos de uma OP fechada.");
+
+            parada.Motivo   = dto.Motivo   ?? parada.Motivo;
+            parada.Operador = dto.Operador ?? parada.Operador;
+
+            if (dto.DataHoraInicio.HasValue)
+                parada.DataHoraInicio = dto.DataHoraInicio.Value;
+
+            if (dto.DataHoraFim.HasValue)
+                parada.DataHoraFim = dto.DataHoraFim.Value;
+
+            // Recalcula Tempo sempre que ambos os extremos estiverem definidos
+            if (parada.DataHoraFim.HasValue)
+            {
+                if (parada.DataHoraFim.Value <= parada.DataHoraInicio)
+                    return BadRequest("A hora de fim deve ser posterior à hora de início.");
+                parada.Tempo = parada.DataHoraFim.Value - parada.DataHoraInicio;
+            }
+
+            await _context.SaveChangesAsync();
+            return Ok(MapToDto(parada));
+        }
+
+        // ── DELETE /api/Eficiencia/{id} ───────────────────────────
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> DeletarParada(int id)
+        {
+            var parada = await _context.Eficiencia
+                .Include(e => e.Producao)
+                .FirstOrDefaultAsync(e => e.Id == id);
+
+            if (parada == null) return NotFound();
+            if (parada.Producao?.Status != "Aberto")
+                return BadRequest("Não é possível excluir lançamentos de uma OP fechada.");
+
+            _context.Eficiencia.Remove(parada);
+            await _context.SaveChangesAsync();
+            return NoContent();
+        }
+
+        // ── Helper ────────────────────────────────────────────────
+        private static EficienciaDto MapToDto(Eficiencia e) => new()
+        {
+            Id             = e.Id,
+            OrdemProducao  = e.OrdemProducao,
+            Motivo         = e.Motivo,
+            DataHoraInicio = e.DataHoraInicio,
+            DataHoraFim    = e.DataHoraFim,
+            Tempo          = e.Tempo ?? (e.DataHoraFim.HasValue ? e.DataHoraFim.Value - e.DataHoraInicio : null),
+            EmAndamento    = !e.DataHoraFim.HasValue,
+            Operador       = e.Operador,
+            DataRegistro   = e.DataRegistro,
+        };
     }
 }

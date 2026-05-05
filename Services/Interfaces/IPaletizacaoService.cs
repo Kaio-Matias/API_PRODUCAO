@@ -1,4 +1,4 @@
-﻿// No arquivo /Services/Interfaces/IPaletizacaoService.cs
+// No arquivo /Services/Interfaces/IPaletizacaoService.cs
 using Valedourado.Shared.Dtos;
 using API_PRODUCAO.Models;
 using System.Collections.Generic;
@@ -11,4 +11,5 @@ public interface IPaletizacaoService
 
     Task<IEnumerable<Paletizacao>> GetPaletesByOpAsync(int ordemProducao);
     Task<PaleteDto> UpdateQtdePaleteAsync(int paleteId, UpdateQtdePaleteDto updateDto);
+    Task<bool> DeletePaleteAsync(int id);
 }

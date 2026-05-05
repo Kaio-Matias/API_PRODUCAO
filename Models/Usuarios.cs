@@ -1,4 +1,4 @@
-﻿namespace API_PRODUCAO.Models
+namespace API_PRODUCAO.Models
 {
     public class Usuarios
     {
@@ -6,5 +6,6 @@
         public string? Nome { get; set; }
         public string? Cargo { get; set; }
         public int? Matricula { get; set; }
+        public string ModulosAcesso { get; set; } = "[]";
     }
 }

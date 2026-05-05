@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using API_PRODUCAO.Services.Interfaces;
 using API_PRODUCAO.Models;
 using Valedourado.Shared.Dtos;
@@ -60,9 +60,24 @@ namespace API_PRODUCAO.Controllers
 
             var paleteAtualizado = await _paletizacaoService.UpdateQtdePaleteAsync(id, updateDto);
 
-            if (paleteAtualizado == null) return NotFound($"Palete com ID {id} não encontrado.");
+            if (paleteAtualizado == null) 
+            {
+               return BadRequest("Não foi possível editar o palete. Verifique se o ID existe ou se a OP está fechada.");
+            }
 
             return Ok(paleteAtualizado);
+        }
+
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> DeletePalete(int id)
+        {
+            var deletado = await _paletizacaoService.DeletePaleteAsync(id);
+            if (!deletado) 
+            {
+                return BadRequest("Não foi possível excluir o palete. Verifique se o ID existe ou se a OP está fechada.");
+            }
+
+            return NoContent();
         }
     }
 }

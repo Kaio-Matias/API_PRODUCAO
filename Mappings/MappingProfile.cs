@@ -1,4 +1,4 @@
-﻿using API_PRODUCAO.Models;
+using API_PRODUCAO.Models;
 using AutoMapper;
 using Valedourado.Shared.Dtos;
 
@@ -8,38 +8,49 @@ namespace API_PRODUCAO.Mappings
     {
         public MappingProfile()
         {
-            // Mapeamento para Usuário (O que faltava)
             CreateMap<Usuarios, UsuarioDto>();
             CreateMap<CreateUsuarioDto, Usuarios>();
 
-            // Mapeamento para Produção
             CreateMap<Producoes, ProducaoDto>();
+            CreateMap<ProducaoDto, Producoes>()
+                .ForMember(d => d.OrdemProducao,     o => o.MapFrom(s => s.OrdemProducao))
+                .ForMember(d => d.DetalhamentoOPs,   o => o.Ignore())
+                .ForMember(d => d.Perdas,            o => o.Ignore())
+                .ForMember(d => d.Eficiencia,        o => o.Ignore())
+                .ForMember(d => d.Paletizacoes,      o => o.Ignore());
             CreateMap<CreateProducaoDto, Producoes>();
 
-            // Mapeamento para Paletização
             CreateMap<CreatePaleteDto, Paletizacao>();
             CreateMap<Paletizacao, PaleteDto>();
 
-            // Mapeamentos para o Relatório Completo (Seus mapeamentos existentes - MANTER)
-            CreateMap<Producoes, RelatorioOpCompletoDto>()
-                .ForMember(dest => dest.InfoGeral, opt => opt.MapFrom(src => src))
-                .ForMember(dest => dest.Detalhamentos, opt => opt.MapFrom(src => src.DetalhamentoOPs))
-                .ForMember(dest => dest.Perdas, opt => opt.MapFrom(src => src.Perdas))
-                .ForMember(dest => dest.Paradas, opt => opt.MapFrom(src => src.Eficiencia))
-                .ForMember(dest => dest.Paletes, opt => opt.MapFrom(src => src.Paletizacoes));
-
             CreateMap<DetalhamentoOP, DetalhamentoOpDto>();
-            CreateMap<Perdas, PerdasOpDto>(); // Mapeamento existente para Relatórios
-            CreateMap<Eficiencia, EficienciaOpDto>(); // Mapeamento existente para Relatórios
+            CreateMap<Perdas, PerdasOpDto>();
+            CreateMap<Perdas, PerdasDto>().ReverseMap();
             CreateMap<Cadastro, CadastroDto>().ReverseMap();
 
-            // =================================================================
-            // ===== ADICIONE ESTAS DUAS LINHAS PARA CORRIGIR O ERRO 500 =====
-            // =================================================================
-            // Mapeamentos necessários para GetPerdasPorOpEOperador
-            CreateMap<Perdas, PerdasDto>().ReverseMap();
-            // Mapeamentos necessários para GetEficienciaPorOpEOperador
-            CreateMap<Eficiencia, EficienciaDto>().ReverseMap();
+            // Eficiência → EficienciaDto (com campos de timestamp)
+            CreateMap<Eficiencia, EficienciaDto>()
+                .ForMember(d => d.EmAndamento, o => o.MapFrom(s => !s.DataHoraFim.HasValue))
+                .ForMember(d => d.Tempo, o => o.MapFrom(s =>
+                    s.Tempo ?? (s.DataHoraFim.HasValue ? s.DataHoraFim.Value - s.DataHoraInicio : (TimeSpan?)null)));
+
+            // Eficiência → EficienciaOpDto (relatório de OP)
+            CreateMap<Eficiencia, EficienciaOpDto>()
+                .ForMember(d => d.EmAndamento, o => o.MapFrom(s => !s.DataHoraFim.HasValue))
+                .ForMember(d => d.Tempo, o => o.MapFrom(s =>
+                    s.Tempo.HasValue
+                        ? s.Tempo.Value.ToString(@"hh\:mm\:ss")
+                        : (s.DataHoraFim.HasValue
+                            ? (s.DataHoraFim.Value - s.DataHoraInicio).ToString(@"hh\:mm\:ss")
+                            : (string?)null)));
+
+            // Producoes → RelatorioOpCompletoDto
+            CreateMap<Producoes, RelatorioOpCompletoDto>()
+                .ForMember(d => d.InfoGeral, o => o.MapFrom(s => s))
+                .ForMember(d => d.Detalhamentos, o => o.MapFrom(s => s.DetalhamentoOPs))
+                .ForMember(d => d.Perdas, o => o.MapFrom(s => s.Perdas))
+                .ForMember(d => d.Paradas, o => o.MapFrom(s => s.Eficiencia))
+                .ForMember(d => d.Paletes, o => o.MapFrom(s => s.Paletizacoes));
         }
     }
 }

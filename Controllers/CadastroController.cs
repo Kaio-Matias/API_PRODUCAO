@@ -1,7 +1,8 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using API_PRODUCAO.Services.Interfaces;
-using Valedourado.Shared.Dtos; // <--- LINHA CORRETA
+using Valedourado.Shared.Dtos; 
 using AutoMapper;
+using API_PRODUCAO.Models; 
 
 namespace API_PRODUCAO.Controllers
 {
@@ -46,6 +47,35 @@ namespace API_PRODUCAO.Controllers
             // Mapeia a entidade para o DTO antes de enviar
             var cadastroDto = _mapper.Map<CadastroDto>(cadastro);
             return Ok(cadastroDto);
+        }
+
+        // POST: api/Cadastro
+        [HttpPost]
+        public async Task<ActionResult<CadastroDto>> PostCadastro([FromBody] CadastroDto cadastroDto)
+        {
+            var cadastro = _mapper.Map<Cadastro>(cadastroDto);
+            var created = await _cadastroService.CreateAsync(cadastro);
+            var resultDto = _mapper.Map<CadastroDto>(created);
+            return CreatedAtAction(nameof(GetCadastros), new { id = resultDto.Id }, resultDto);
+        }
+
+        // PUT: api/Cadastro/5
+        [HttpPut("{id}")]
+        public async Task<IActionResult> PutCadastro(int id, [FromBody] CadastroDto cadastroDto)
+        {
+            var cadastro = _mapper.Map<Cadastro>(cadastroDto);
+            var updated = await _cadastroService.UpdateAsync(id, cadastro);
+            if (updated == null) return NotFound();
+            return NoContent();
+        }
+
+        // DELETE: api/Cadastro/5
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> DeleteCadastro(int id)
+        {
+            var success = await _cadastroService.DeleteAsync(id);
+            if (!success) return NotFound();
+            return NoContent();
         }
     }
 }

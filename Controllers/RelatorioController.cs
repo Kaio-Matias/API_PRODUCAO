@@ -1,4 +1,4 @@
-﻿using API_PRODUCAO.Services.Interfaces;
+using API_PRODUCAO.Services.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using System;

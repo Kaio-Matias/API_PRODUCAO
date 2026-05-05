@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using API_PRODUCAO.Models;
 
 namespace API_PRODUCAO.Data
@@ -15,7 +15,14 @@ namespace API_PRODUCAO.Data
         public DbSet<DetalhamentoOP> DetalhamentoOPs { get; set; }
         public DbSet<Perdas> Perdas { get; set; }
         public DbSet<Eficiencia> Eficiencia { get; set; }
-        public DbSet<Paletizacao> Paletizacoes { get; set; } // Adicionar esta linha
+        public DbSet<Paletizacao> Paletizacoes { get; set; }
+        public DbSet<MetaProducao> MetasProducao { get; set; }
+        public DbSet<MetaCaptacaoLeite> MetasCaptacaoLeite { get; set; }
+        public DbSet<CaptacaoLeite> CaptacoesLeite { get; set; }
+        public DbSet<VinculoAgranelAcabado> VinculosAgranelAcabado { get; set; }
+        public DbSet<IndicadorAgranel> IndicadoresAgranel { get; set; }
+        public DbSet<EstoqueAgranel> EstoqueAgranel { get; set; }
+        public DbSet<MovimentoEstoqueAgranel> MovimentosEstoqueAgranel { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

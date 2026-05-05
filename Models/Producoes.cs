@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 
 namespace API_PRODUCAO.Models
 {
@@ -12,6 +12,10 @@ namespace API_PRODUCAO.Models
         public string? Status { get; set; }
         public DateTime DataHoraAbertura { get; set; }
         public DateTime? DataHoraFechamento { get; set; }
+        public string? SupervisorFechamento { get; set; }
+
+        public string? CodigoAgranel { get; set; }
+        public double FatorConversaoLiters { get; set; }
 
 
         public virtual ICollection<DetalhamentoOP> DetalhamentoOPs { get; set; }

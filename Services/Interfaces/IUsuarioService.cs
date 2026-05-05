@@ -1,4 +1,4 @@
-﻿using API_PRODUCAO.Models;
+using API_PRODUCAO.Models;
 
 namespace API_PRODUCAO.Services.Interfaces
 {
@@ -8,5 +8,8 @@ namespace API_PRODUCAO.Services.Interfaces
         Task<Usuarios> RegisterAsync(Usuarios usuario);
         Task<Usuarios?> GetUsuarioByIdAsync(int id);
         Task<bool> UsuarioExistsAsync(int matricula);
+        Task<IEnumerable<Usuarios>> GetTodosUsuariosAsync();
+        Task<Usuarios?> UpdateModulosAcessoAsync(int id, string modulosAcessoJson);
+        Task<bool> DeleteAsync(int id);
     }
 }

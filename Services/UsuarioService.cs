@@ -1,4 +1,4 @@
-﻿using API_PRODUCAO.Data;
+using API_PRODUCAO.Data;
 using API_PRODUCAO.Models;
 using API_PRODUCAO.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
@@ -35,6 +35,31 @@ namespace API_PRODUCAO.Services
         public async Task<bool> UsuarioExistsAsync(int matricula)
         {
             return await _context.Usuarios.AnyAsync(u => u.Matricula == matricula);
+        }
+
+        public async Task<IEnumerable<Usuarios>> GetTodosUsuariosAsync()
+        {
+            return await _context.Usuarios.ToListAsync();
+        }
+
+        public async Task<Usuarios?> UpdateModulosAcessoAsync(int id, string modulosAcessoJson)
+        {
+            var usuario = await _context.Usuarios.FindAsync(id);
+            if (usuario == null) return null;
+
+            usuario.ModulosAcesso = modulosAcessoJson;
+            await _context.SaveChangesAsync();
+            return usuario;
+        }
+
+        public async Task<bool> DeleteAsync(int id)
+        {
+            var usuario = await _context.Usuarios.FindAsync(id);
+            if (usuario == null) return false;
+
+            _context.Usuarios.Remove(usuario);
+            await _context.SaveChangesAsync();
+            return true;
         }
     }
 }

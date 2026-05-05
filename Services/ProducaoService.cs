@@ -1,4 +1,4 @@
-﻿using API_PRODUCAO.Data;
+using API_PRODUCAO.Data;
 using API_PRODUCAO.Models;
 using API_PRODUCAO.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
@@ -24,6 +24,8 @@ namespace API_PRODUCAO.Services
         /// <summary>
         /// Cria uma nova Ordem de Produção no banco de dados.
         /// Define o status como "Aberto" e a data/hora de abertura para o momento atual.
+        /// Vincula automaticamente o A Granel correspondente ao produto, caso exista
+        /// um registro em VinculosAgranelAcabado com o código do produto.
         /// </summary>
         /// <param name="producao">O objeto de produção a ser criado.</param>
         /// <returns>A entidade de produção após ser salva no banco.</returns>
@@ -31,6 +33,30 @@ namespace API_PRODUCAO.Services
         {
             producao.Status = "Aberto";
             producao.DataHoraAbertura = DateTime.Now;
+
+            // ── Vínculo automático agranel ─────────────────────────────────────────
+            // Se o produto ainda não tem agranel vinculado, tenta encontrar via
+            // VinculosAgranelAcabado usando o código antes do primeiro "-" no nome.
+            // Ex.: "P001 - Leite Integral 1L" → código "P001"
+            if (!string.IsNullOrEmpty(producao.Produto) &&
+                (string.IsNullOrEmpty(producao.CodigoAgranel) || producao.FatorConversaoLiters == 0))
+            {
+                var idx = producao.Produto.IndexOf('-');
+                var codigoProduto = idx > 0
+                    ? producao.Produto[..idx].Trim()
+                    : producao.Produto.Trim();
+
+                var vinculo = await _context.VinculosAgranelAcabado
+                    .FirstOrDefaultAsync(v => v.CodigoProdutoAcabado == codigoProduto);
+
+                if (vinculo != null)
+                {
+                    producao.CodigoAgranel = vinculo.CodigoAgranel;
+                    producao.FatorConversaoLiters = vinculo.LitrosPorCaixa;
+                }
+            }
+            // ──────────────────────────────────────────────────────────────────────
+
             _context.Producoes.Add(producao);
             await _context.SaveChangesAsync();
             return producao;
@@ -67,27 +93,82 @@ namespace API_PRODUCAO.Services
         }
 
         /// <summary>
-        /// Altera o status de uma Ordem de Produção para "Fechado" e registra a data/hora do fechamento.
+        /// Altera o status de uma Ordem de Produção para "Fechado", registra a data/hora do
+        /// fechamento e, se houver vínculo com A Granel, debita automaticamente o consumo
+        /// de EstoqueAgranel e gera um movimento do tipo CONSUMO no histórico.
         /// </summary>
         /// <param name="ordemProducao">O número da OP a ser fechada.</param>
+        /// <param name="supervisor">O nome do supervisor que fechou a OP.</param>
         /// <returns>Retorna 'true' se a operação foi bem-sucedida, e 'false' se a OP não foi encontrada ou já estava fechada.</returns>
-        public async Task<bool> FecharProducaoAsync(int ordemProducao)
+        public async Task<bool> FecharProducaoAsync(int ordemProducao, string? supervisor = null)
         {
+            // Carrega a OP junto com todos os DetalhamentoOPs para calcular o consumo
             var producao = await _context.Producoes
+                .Include(p => p.DetalhamentoOPs)
                 .FirstOrDefaultAsync(p => p.OrdemProducao == ordemProducao);
 
             if (producao == null || producao.Status != "Aberto")
-            {
-                // Retorna false se a OP não for encontrada ou se seu status não for "Aberto"
                 return false;
-            }
 
             producao.Status = "Fechado";
             producao.DataHoraFechamento = DateTime.Now;
+            producao.SupervisorFechamento = supervisor;
 
-            // Salva as alterações no banco de dados
+            // ── Débito automático de A Granel ──────────────────────────────────────
+            // Calcula o consumo somente quando a OP tem vínculo e fator configurados
+            if (!string.IsNullOrEmpty(producao.CodigoAgranel) && producao.FatorConversaoLiters > 0)
+            {
+                int totalEmb = producao.DetalhamentoOPs?.Sum(d => d.EmbProduzidas) ?? 0;
+
+                if (totalEmb > 0)
+                {
+                    double consumoLitros = totalEmb * producao.FatorConversaoLiters;
+
+                    var estoque = await _context.EstoqueAgranel
+                        .FirstOrDefaultAsync(e => e.CodigoAgranel == producao.CodigoAgranel);
+
+                    double saldoAnterior = estoque?.SaldoLitros ?? 0;
+                    double saldoNovo     = saldoAnterior - consumoLitros;
+
+                    if (estoque == null)
+                    {
+                        // Cria o registro de estoque se ainda não existir (saldo negativo indica
+                        // que o produto foi consumido antes de qualquer entrada ser registrada)
+                        var vinculo = await _context.VinculosAgranelAcabado
+                            .FirstOrDefaultAsync(v => v.CodigoAgranel == producao.CodigoAgranel);
+
+                        _context.EstoqueAgranel.Add(new EstoqueAgranel
+                        {
+                            CodigoAgranel    = producao.CodigoAgranel,
+                            DescricaoAgranel = vinculo?.DescricaoAgranel ?? producao.CodigoAgranel,
+                            SaldoLitros      = saldoNovo,
+                            ValorUnitario    = 0,
+                            UltimaAtualizacao = DateTime.Now
+                        });
+                    }
+                    else
+                    {
+                        estoque.SaldoLitros       = saldoNovo;
+                        estoque.UltimaAtualizacao = DateTime.Now;
+                    }
+
+                    // Registra o movimento no histórico imutável
+                    await _context.MovimentosEstoqueAgranel.AddAsync(new MovimentoEstoqueAgranel
+                    {
+                        CodigoAgranel    = producao.CodigoAgranel,
+                        TipoMovimento    = "CONSUMO",
+                        QuantidadeLitros = -consumoLitros,
+                        SaldoAnterior    = saldoAnterior,
+                        SaldoPosterior   = saldoNovo,
+                        DataMovimento    = DateTime.Now,
+                        Referencia       = $"OP #{ordemProducao}",
+                        Observacao       = $"Consumo automático: {totalEmb} emb × {producao.FatorConversaoLiters:F4} L/emb = {consumoLitros:F2} L"
+                    });
+                }
+            }
+            // ──────────────────────────────────────────────────────────────────────
+
             await _context.SaveChangesAsync();
-
             return true;
         }
 
@@ -111,6 +192,51 @@ namespace API_PRODUCAO.Services
             producao.Status = "Cancelado";
             producao.DataHoraFechamento = DateTime.Now; // Registra quando foi cancelada
 
+            await _context.SaveChangesAsync();
+            return true;
+        }
+
+        public async Task<Producoes?> UpdateProducaoAsync(int ordemProducao, Producoes newData)
+        {
+            var existing = await _context.Producoes.FirstOrDefaultAsync(p => p.OrdemProducao == ordemProducao);
+            if (existing == null) return null;
+
+            existing.Produto = newData.Produto;
+            existing.Maquina = newData.Maquina;
+            existing.Unidade = newData.Unidade;
+            existing.Status = newData.Status;
+            existing.CodigoAgranel = newData.CodigoAgranel;
+            existing.FatorConversaoLiters = newData.FatorConversaoLiters;
+            existing.DataHoraAbertura = newData.DataHoraAbertura;
+            if (newData.DataHoraFechamento.HasValue)
+            {
+                existing.DataHoraFechamento = newData.DataHoraFechamento;
+            } else {
+                existing.DataHoraFechamento = null;
+            }
+
+            await _context.SaveChangesAsync();
+            return existing;
+        }
+
+        public async Task<bool> DeleteProducaoAsync(int ordemProducao)
+        {
+            var producao = await _context.Producoes
+                .Include(p => p.DetalhamentoOPs)
+                .Include(p => p.Perdas)
+                .Include(p => p.Eficiencia)
+                .Include(p => p.Paletizacoes)
+                .FirstOrDefaultAsync(p => p.OrdemProducao == ordemProducao);
+
+            if (producao == null) return false;
+
+            _context.DetalhamentoOPs.RemoveRange(producao.DetalhamentoOPs);
+            _context.Perdas.RemoveRange(producao.Perdas);
+            _context.Eficiencia.RemoveRange(producao.Eficiencia);
+            _context.Paletizacoes.RemoveRange(producao.Paletizacoes);
+
+            _context.Producoes.Remove(producao);
+            
             await _context.SaveChangesAsync();
             return true;
         }

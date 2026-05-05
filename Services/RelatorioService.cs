@@ -1,4 +1,4 @@
-﻿using API_PRODUCAO.Data;
+using API_PRODUCAO.Data;
 using API_PRODUCAO.Services.Interfaces;
 using AutoMapper;
 using Microsoft.EntityFrameworkCore;
@@ -139,14 +139,18 @@ namespace API_PRODUCAO.Services
 
             foreach (var parada in relatorio.Paradas)
             {
+                TimeSpan ts = TimeSpan.Zero;
+                if (!string.IsNullOrEmpty(parada.Tempo))
+                    TimeSpan.TryParse(parada.Tempo, out ts);
+
                 if ("PRODUÇÃO".Equals(parada.Motivo, StringComparison.OrdinalIgnoreCase))
                 {
-                    horasProdutivas += parada.Tempo;
+                    horasProdutivas += ts;
                 }
 
                 if (!motivosExcluidos.Contains(parada.Motivo))
                 {
-                    horasTotais += parada.Tempo;
+                    horasTotais += ts;
                 }
             }
 
@@ -169,6 +173,45 @@ namespace API_PRODUCAO.Services
             embalagensTable.AddCell(new Cell().Add(CreateInfoCell("Embalagens Perdidas", $"{totalPerdidas} {perdasStr}")).SetBorder(Border.NO_BORDER));
             embalagensTable.AddCell(new Cell().Add(CreateInfoCell("Eficiência", eficienciaPorTempoStr)).SetBorder(Border.NO_BORDER));
             document.Add(embalagensTable);
+
+            // ================== PERFORMANCE POR OPERADOR ==================
+            var porOperador = relatorio.Detalhamentos
+                .GroupBy(d => string.IsNullOrWhiteSpace(d.Operador) ? "Desconhecido" : d.Operador)
+                .Select(g => new
+                {
+                    Operador = g.Key,
+                    Processadas = g.Sum(x => x.EmbProcessadas),
+                    Produzidas = g.Sum(x => x.EmbProduzidas),
+                    Perdidas = g.Sum(x => x.EmbPerdidas)
+                })
+                .OrderBy(x => x.Operador)
+                .ToList();
+
+            document.Add(new Paragraph("Performance por Operador")
+                .SetFont(boldFont).SetFontSize(12).SetMarginBottom(5));
+
+            var tableOperador = new Table(UnitValue.CreatePercentArray(new float[] { 2, 1, 1, 1, 1, 1 }))
+                .UseAllAvailableWidth().SetMarginBottom(20);
+            tableOperador.AddHeaderCell(new Cell().Add(new Paragraph("Operador").SetFont(boldFont).SetTextAlignment(TextAlignment.CENTER)));
+            tableOperador.AddHeaderCell(new Cell().Add(new Paragraph("Processadas").SetFont(boldFont).SetTextAlignment(TextAlignment.CENTER)));
+            tableOperador.AddHeaderCell(new Cell().Add(new Paragraph("Produzidas").SetFont(boldFont).SetTextAlignment(TextAlignment.CENTER)));
+            tableOperador.AddHeaderCell(new Cell().Add(new Paragraph("Perdidas").SetFont(boldFont).SetTextAlignment(TextAlignment.CENTER)));
+            tableOperador.AddHeaderCell(new Cell().Add(new Paragraph("% Perda").SetFont(boldFont).SetTextAlignment(TextAlignment.CENTER)));
+            tableOperador.AddHeaderCell(new Cell().Add(new Paragraph("Eficiência").SetFont(boldFont).SetTextAlignment(TextAlignment.CENTER)));
+
+            foreach (var opData in porOperador)
+            {
+                var opEficiencia = opData.Processadas > 0 ? ((double)opData.Produzidas / opData.Processadas) * 100 : 0;
+                var opPercPerda = opData.Processadas > 0 ? ((double)opData.Perdidas / opData.Processadas) * 100 : 0;
+
+                tableOperador.AddCell(new Cell().Add(new Paragraph(opData.Operador).SetTextAlignment(TextAlignment.CENTER)));
+                tableOperador.AddCell(new Cell().Add(new Paragraph($"{opData.Processadas}").SetTextAlignment(TextAlignment.CENTER)));
+                tableOperador.AddCell(new Cell().Add(new Paragraph($"{opData.Produzidas}").SetTextAlignment(TextAlignment.CENTER)));
+                tableOperador.AddCell(new Cell().Add(new Paragraph($"{opData.Perdidas}").SetTextAlignment(TextAlignment.CENTER)));
+                tableOperador.AddCell(new Cell().Add(new Paragraph($"{opPercPerda:F1}%").SetTextAlignment(TextAlignment.CENTER)));
+                tableOperador.AddCell(new Cell().Add(new Paragraph($"{opEficiencia:F1}%").SetTextAlignment(TextAlignment.CENTER)));
+            }
+            document.Add(tableOperador);
 
             // ================== TABELAS DE DETALHAMENTO ==================
             var sideBySideTable = new Table(UnitValue.CreatePercentArray(new float[] { 1, 1 }))
@@ -200,8 +243,9 @@ namespace API_PRODUCAO.Services
             {
                 foreach (var parada in relatorio.Paradas)
                 {
+                    string tempoStr = !string.IsNullOrEmpty(parada.Tempo) ? parada.Tempo.Substring(0, 5) : "00:00";
                     paradasTable.AddCell(new Cell().Add(new Paragraph(parada.Motivo)).SetBorder(Border.NO_BORDER));
-                    paradasTable.AddCell(new Cell().Add(new Paragraph(parada.Tempo.ToString(@"hh\:mm"))).SetBorder(Border.NO_BORDER).SetTextAlignment(TextAlignment.RIGHT));
+                    paradasTable.AddCell(new Cell().Add(new Paragraph(tempoStr)).SetBorder(Border.NO_BORDER).SetTextAlignment(TextAlignment.RIGHT));
                 }
             }
             else
@@ -253,6 +297,14 @@ namespace API_PRODUCAO.Services
             document.Add(new Paragraph($"Operador(es): {operadores}")
                 .SetMarginTop(30));
             document.Add(new Paragraph($"Pistolador(es): {pistoladores}"));
+
+            string dataFechamento = relatorio.InfoGeral.DataHoraFechamento?.ToString("dd/MM/yyyy HH:mm") ?? "Em aberto";
+            string nomeSupervisor = string.IsNullOrEmpty(relatorio.InfoGeral.SupervisorFechamento) 
+                ? "___________________________" 
+                : relatorio.InfoGeral.SupervisorFechamento;
+
+            document.Add(new Paragraph($"Ordem de Produção revisada e fechada por {nomeSupervisor} (Supervisor) em {dataFechamento}")
+                .SetMarginTop(20).SetFont(boldFont));
 
             document.Close();
             return memoryStream.ToArray();
