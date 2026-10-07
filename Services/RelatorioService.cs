@@ -126,38 +126,49 @@ namespace API_PRODUCAO.Services
             infoRowTable.AddCell(new Cell().Add(CreateInfoCell("Máquina", relatorio.InfoGeral.Maquina)).SetBorder(Border.NO_BORDER));
             document.Add(infoRowTable);
 
-            var motivosExcluidos = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-            {
-                "AGUARDANDO CAIXA", "AGUARDANDO EMBALAGEM", "AGUARDANDO TURMA",
-                "BOBINA DE TESTE", "CIP", "ESTERILIZAÇÃO", "FALTA DE PRODUTO",
-                "LIMPEZA INTERMEDIARIA", "LIMPEZA SEMANAL", "LUBRIFICAÇÃO",
-                "MANUTENÇÃO PREVENTIVA"
-            };
+            // ── Eficiência temporal ────────────────────────────────────────────
+            // O tempo de produção é derivado da janela da OP (abertura → fechamento)
+            // descontando as paradas registradas. O antigo motivo "PRODUÇÃO" foi
+            // descontinuado; registros legados com esse motivo são ignorados para
+            // não serem contabilizados indevidamente como parada.
+            var inicioOp = relatorio.InfoGeral.DataHoraAbertura;
+            var fimOp    = relatorio.InfoGeral.DataHoraFechamento ?? DateTime.Now;
 
-            TimeSpan horasProdutivas = TimeSpan.Zero;
-            TimeSpan horasTotais = TimeSpan.Zero;
+            // Janela exibida une o período oficial da OP com o período real das paradas,
+            // pois a abertura/fechamento pode não cobrir totalmente os horários registrados.
+            var janelaInicio = inicioOp;
+            var janelaFim    = fimOp;
 
+            TimeSpan tempoParado = TimeSpan.Zero;
             foreach (var parada in relatorio.Paradas)
             {
-                TimeSpan ts = TimeSpan.Zero;
-                if (!string.IsNullOrEmpty(parada.Tempo))
-                    TimeSpan.TryParse(parada.Tempo, out ts);
-
                 if ("PRODUÇÃO".Equals(parada.Motivo, StringComparison.OrdinalIgnoreCase))
-                {
-                    horasProdutivas += ts;
-                }
+                    continue; // registro legado — não conta como parada
 
-                if (!motivosExcluidos.Contains(parada.Motivo))
-                {
-                    horasTotais += ts;
-                }
+                var paradaFim = parada.DataHoraFim ?? DateTime.Now;
+
+                TimeSpan ts;
+                if (!string.IsNullOrEmpty(parada.Tempo) && TimeSpan.TryParse(parada.Tempo, out var tsParsed))
+                    ts = tsParsed;
+                else
+                    ts = paradaFim - parada.DataHoraInicio;
+
+                tempoParado += ts;
+
+                if (parada.DataHoraInicio < janelaInicio) janelaInicio = parada.DataHoraInicio;
+                if (paradaFim > janelaFim) janelaFim = paradaFim;
             }
 
+            TimeSpan tempoDisponivel = janelaFim > janelaInicio ? janelaFim - janelaInicio : TimeSpan.Zero;
+
+            TimeSpan tempoProdutivo = tempoDisponivel > tempoParado
+                ? tempoDisponivel - tempoParado
+                : TimeSpan.Zero;
+
             string eficienciaPorTempoStr = "N/A";
-            if (horasTotais.TotalSeconds > 0)
+            if (tempoDisponivel.TotalSeconds > 0)
             {
-                double eficienciaPercentual = (horasProdutivas.TotalSeconds / horasTotais.TotalSeconds);
+                double eficienciaPercentual = tempoProdutivo.TotalSeconds / tempoDisponivel.TotalSeconds;
                 eficienciaPorTempoStr = eficienciaPercentual.ToString("P1");
             }
 

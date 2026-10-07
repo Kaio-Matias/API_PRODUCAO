@@ -34,29 +34,6 @@ namespace API_PRODUCAO.Services
             producao.Status = "Aberto";
             producao.DataHoraAbertura = DateTime.Now;
 
-            // ── Vínculo automático agranel ─────────────────────────────────────────
-            // Se o produto ainda não tem agranel vinculado, tenta encontrar via
-            // VinculosAgranelAcabado usando o código antes do primeiro "-" no nome.
-            // Ex.: "P001 - Leite Integral 1L" → código "P001"
-            if (!string.IsNullOrEmpty(producao.Produto) &&
-                (string.IsNullOrEmpty(producao.CodigoAgranel) || producao.FatorConversaoLiters == 0))
-            {
-                var idx = producao.Produto.IndexOf('-');
-                var codigoProduto = idx > 0
-                    ? producao.Produto[..idx].Trim()
-                    : producao.Produto.Trim();
-
-                var vinculo = await _context.VinculosAgranelAcabado
-                    .FirstOrDefaultAsync(v => v.CodigoProdutoAcabado == codigoProduto);
-
-                if (vinculo != null)
-                {
-                    producao.CodigoAgranel = vinculo.CodigoAgranel;
-                    producao.FatorConversaoLiters = vinculo.LitrosPorCaixa;
-                }
-            }
-            // ──────────────────────────────────────────────────────────────────────
-
             _context.Producoes.Add(producao);
             await _context.SaveChangesAsync();
             return producao;

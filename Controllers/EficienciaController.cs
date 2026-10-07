@@ -38,14 +38,14 @@ namespace API_PRODUCAO.Controllers
                 return BadRequest("OrdemProducao e Motivo são obrigatórios.");
 
             var op = await _context.Producoes.FirstOrDefaultAsync(p => p.OrdemProducao == dto.OrdemProducao);
-            if (op == null)         return NotFound("Ordem de Produção não encontrada.");
+            if (op == null)  return NotFound("Ordem de Produção não encontrada.");
             if (op.Status != "Aberto") return BadRequest("Não é possível registrar paradas em uma OP que não está aberta.");
 
             // Modo manual: valida que fim > início quando ambos são fornecidos
             if (dto.DataHoraInicio.HasValue && dto.DataHoraFim.HasValue
                 && dto.DataHoraFim.Value <= dto.DataHoraInicio.Value)
                 return BadRequest("A hora de fim deve ser posterior à hora de início.");
-
+             
             var inicio = dto.DataHoraInicio ?? DateTime.Now;
             var fim    = dto.DataHoraFim;
 

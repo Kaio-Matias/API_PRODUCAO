@@ -15,5 +15,6 @@
         public double PesoLiquido { get; set; }
         public double PesoTotalPalete { get; set; }
         public decimal PrecoUnitario { get; set; }
+        public bool Terceirizado { get; set; }
     }
 }
