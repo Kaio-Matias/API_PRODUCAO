@@ -6,6 +6,8 @@ using AutoMapper;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using System;
+using API_PRODUCAO.Security;
+using Microsoft.AspNetCore.Authorization;
 
 namespace API_PRODUCAO.Controllers
 {
@@ -66,6 +68,7 @@ namespace API_PRODUCAO.Controllers
             }
         }
 
+        [Authorize(Policy = Politicas.AberturaOp)]
         [HttpPost]
         public async Task<ActionResult<ProducaoDto>> PostProducao([FromBody] CreateProducaoDto producaoDto)
         {
@@ -75,20 +78,33 @@ namespace API_PRODUCAO.Controllers
             return CreatedAtAction(nameof(GetProducao), new { id = resultadoDto.OrdemProducao }, resultadoDto);
         }
 
+        [Authorize(Policy = Politicas.GestaoOp)]
         [HttpPut("{id}")]
         public async Task<ActionResult<ProducaoDto>> PutProducao(int id, [FromBody] ProducaoDto producaoDto)
         {
             var producao = _mapper.Map<Producoes>(producaoDto);
-            var updated = await _producaoService.UpdateProducaoAsync(id, producao);
+            Producoes? updated;
+            try
+            {
+                // Só o Portal envia este cabeçalho; demais apps não podem ajustar data/hora da OP
+                var vemDoPortal = string.Equals(Request.Headers["X-Origem"].ToString(), "portal", StringComparison.OrdinalIgnoreCase);
+                updated = await _producaoService.UpdateProducaoAsync(id, producao, vemDoPortal);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(ex.Message);
+            }
             if (updated == null) return NotFound();
 
             return Ok(_mapper.Map<ProducaoDto>(updated));
         }
 
+        [Authorize(Policy = Politicas.GestaoOp)]
         [HttpPut("{ordemProducao}/fechar")]
         public async Task<IActionResult> FecharProducao(int ordemProducao, [FromQuery] string? supervisor = null)
         {
-            var sucesso = await _producaoService.FecharProducaoAsync(ordemProducao, supervisor);
+            // O nome registrado vem do login; o parâmetro só é usado se o token não tiver nome
+            var sucesso = await _producaoService.FecharProducaoAsync(ordemProducao, NomeUsuarioLogado() ?? supervisor);
             if (!sucesso)
             {
                 return NotFound($"OP {ordemProducao} não encontrada ou já está fechada.");
@@ -96,7 +112,19 @@ namespace API_PRODUCAO.Controllers
             return Ok(new { Message = $"Ordem de Produção {ordemProducao} fechada com sucesso." });
         }
 
+        /// <summary>Reabre OP Fechada/Cancelada, estornando o consumo de A Granel.</summary>
+        [Authorize(Policy = Politicas.GestaoOp)]
+        [HttpPut("{ordemProducao}/reabrir")]
+        public async Task<IActionResult> ReabrirProducao(int ordemProducao)
+        {
+            var sucesso = await _producaoService.ReabrirProducaoAsync(ordemProducao, NomeUsuarioLogado());
+            if (!sucesso)
+                return NotFound($"OP {ordemProducao} não encontrada ou já está aberta.");
+            return Ok(new { Message = $"Ordem de Produção {ordemProducao} reaberta. Consumo de A Granel estornado." });
+        }
+
         // ===== NOVO ENDPOINT ADICIONADO =====
+        [Authorize(Policy = Politicas.GestaoOp)]
         [HttpPut("{ordemProducao}/cancelar")]
         public async Task<IActionResult> CancelarProducao(int ordemProducao)
         {
@@ -109,6 +137,7 @@ namespace API_PRODUCAO.Controllers
             return Ok(new { Message = $"Ordem de Produção {ordemProducao} cancelada com sucesso." });
         }
 
+        [Authorize(Policy = Politicas.Administracao)]
         [HttpDelete("{ordemProducao}")]
         public async Task<IActionResult> DeleteProducao(int ordemProducao)
         {
@@ -120,5 +149,11 @@ namespace API_PRODUCAO.Controllers
             return Ok(new { Message = $"Ordem de Produção {ordemProducao} e todos os seus registros atrelados foram excluídos com sucesso." });
         }
         // ===================================
+
+        private string? NomeUsuarioLogado()
+        {
+            var nome = User.FindFirst("name")?.Value ?? User.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value;
+            return string.IsNullOrWhiteSpace(nome) ? null : nome;
+        }
     }
 }

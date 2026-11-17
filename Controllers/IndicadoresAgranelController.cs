@@ -5,6 +5,8 @@ using Microsoft.EntityFrameworkCore;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using API_PRODUCAO.Security;
+using Microsoft.AspNetCore.Authorization;
 using System.Collections.Generic;
 
 namespace API_PRODUCAO.Controllers
@@ -47,8 +49,8 @@ namespace API_PRODUCAO.Controllers
                 int totalEmb = op.DetalhamentoOPs?.Sum(d => d.EmbProduzidas) ?? 0;
                 if (totalEmb <= 0) continue;
 
-                // Consumo (L) = embalagens produzidas × fator de conversão (litros/embalagem)
-                // Ex: 15.000 emb de leite 1L × 1.0 = 15.000 L
+                // Consumo (L) = caixas produzidas (EmbProduzidas) × fator de conversão (litros/caixa)
+                // Ex: 1.000 cx de 27×200ml × 5,4 L/cx = 5.400 L
                 double litros = totalEmb * op.FatorConversaoLiters;
 
                 if (!consumo.ContainsKey(op.CodigoAgranel!))
@@ -278,7 +280,7 @@ namespace API_PRODUCAO.Controllers
                             DescricaoAgranel = ind.DescricaoAgranel,
                             SaldoLitros = ind.Final,
                             ValorUnitario = ind.ValorUnitario,
-                            UltimaAtualizacao = DateTime.UtcNow
+                            UltimaAtualizacao = DateTime.Now
                         };
                         await _context.EstoqueAgranel.AddAsync(estoque);
                     }
@@ -286,7 +288,7 @@ namespace API_PRODUCAO.Controllers
                     {
                         estoque.SaldoLitros = ind.Final;
                         estoque.ValorUnitario = ind.ValorUnitario;
-                        estoque.UltimaAtualizacao = DateTime.UtcNow;
+                        estoque.UltimaAtualizacao = DateTime.Now;
                         _context.EstoqueAgranel.Update(estoque);
                     }
 
@@ -296,7 +298,7 @@ namespace API_PRODUCAO.Controllers
                         QuantidadeLitros = ind.Final - saldoAnterior,
                         SaldoAnterior = saldoAnterior,
                         SaldoPosterior = ind.Final,
-                        DataMovimento = DateTime.UtcNow,
+                        DataMovimento = DateTime.Now,
                         Referencia = $"Indicador {dataRef:yyyy-MM-dd}"
                     });
                 }
@@ -311,7 +313,7 @@ namespace API_PRODUCAO.Controllers
         [HttpPost("adicionar-preparo")]
         public async Task<IActionResult> AdicionarPreparo([FromBody] Valedourado.Shared.Dtos.AdicionarPreparoDto dto)
         {
-            var dataRef = dto.DataReferencia ?? DateTime.UtcNow.Date;
+            var dataRef = dto.DataReferencia ?? DateTime.Now.Date;
             using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
@@ -357,7 +359,7 @@ namespace API_PRODUCAO.Controllers
                         DescricaoAgranel = registroDia.DescricaoAgranel,
                         SaldoLitros = saldoNovo,
                         ValorUnitario = registroDia.ValorUnitario,
-                        UltimaAtualizacao = DateTime.UtcNow
+                        UltimaAtualizacao = DateTime.Now
                     });
                 }
                 else
@@ -470,6 +472,7 @@ namespace API_PRODUCAO.Controllers
             }
         }
 
+        [Authorize(Policy = Politicas.Administracao)]
         [HttpPost("sincronizar-fatores")]
         public async Task<IActionResult> SincronizarFatores()
         {

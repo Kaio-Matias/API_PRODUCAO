@@ -22,7 +22,11 @@ namespace API_PRODUCAO.Services.Interfaces
         /// <param name="ordemProducao">O número da OP a ser cancelada.</param>
         /// <returns>Retorna 'true' se a operação foi bem-sucedida.</returns>
         Task<bool> CancelarProducaoAsync(int ordemProducao);
-        Task<Producoes?> UpdateProducaoAsync(int ordemProducao, Producoes newData);
+
+        /// <summary>Reabre OP Fechada/Cancelada e estorna o consumo de A Granel já debitado.</summary>
+        Task<bool> ReabrirProducaoAsync(int ordemProducao, string? usuario = null);
+        /// <param name="permitirAlterarDatas">true só quando a alteração vem do Portal (data/hora de abertura e fechamento).</param>
+        Task<Producoes?> UpdateProducaoAsync(int ordemProducao, Producoes newData, bool permitirAlterarDatas = false);
         Task<bool> DeleteProducaoAsync(int ordemProducao);
     }
 }

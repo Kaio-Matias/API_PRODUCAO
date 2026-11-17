@@ -8,6 +8,7 @@ using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+using API_PRODUCAO.Security;
 
 namespace API_PRODUCAO.Controllers
 {
@@ -46,14 +47,24 @@ namespace API_PRODUCAO.Controllers
             });
         }
 
-        [AllowAnonymous]
+        // Somente Supervisor/Admin cadastram usuários; somente Admin cria outro Admin.
+        [Authorize(Policy = Politicas.Administracao)]
         [HttpPost("register")]
         public async Task<ActionResult<UsuarioDto>> Register([FromBody] CreateUsuarioDto usuarioDto)
         {
+            var cargo = Cargos.Normalizar(usuarioDto.Cargo);
+            if (!string.IsNullOrWhiteSpace(usuarioDto.Cargo) &&
+                !Cargos.Todos.Contains(usuarioDto.Cargo.Trim(), StringComparer.OrdinalIgnoreCase))
+                return BadRequest($"Cargo inválido. Use: {string.Join(", ", Cargos.Todos)}.");
+
+            if (cargo == Cargos.Admin && !User.IsInRole(Cargos.Admin))
+                return StatusCode(StatusCodes.Status403Forbidden, "Somente um Admin pode cadastrar outro Admin.");
+
             if (await _usuarioService.UsuarioExistsAsync(usuarioDto.Matricula!.Value))
                 return Conflict("Já existe um usuário cadastrado com esta matrícula.");
 
             var usuario        = _mapper.Map<Usuarios>(usuarioDto);
+            usuario.Cargo      = cargo;
             var usuarioCriado  = await _usuarioService.RegisterAsync(usuario);
             var resultadoDto   = _mapper.Map<UsuarioDto>(usuarioCriado);
 
@@ -68,6 +79,7 @@ namespace API_PRODUCAO.Controllers
             return Ok(usuariosDto);
         }
 
+        [Authorize(Policy = Politicas.Administracao)]
         [HttpPut("{id}/modulos")]
         public async Task<ActionResult<UsuarioDto>> UpdateModulosAcesso(int id, [FromBody] UpdateUsuarioModulosDto modulosDto)
         {
@@ -81,9 +93,13 @@ namespace API_PRODUCAO.Controllers
             return Ok(usuarioDto);
         }
 
+        [Authorize(Policy = Politicas.Administracao)]
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteUsuario(int id)
         {
+            if (User.FindFirst("id")?.Value == id.ToString())
+                return BadRequest("Você não pode excluir o próprio usuário.");
+
             var deleted = await _usuarioService.DeleteAsync(id);
             if (!deleted) return NotFound("Usuário não encontrado.");
             return NoContent();
@@ -101,7 +117,8 @@ namespace API_PRODUCAO.Controllers
             {
                 new Claim(JwtRegisteredClaimNames.Sub,  usuario.Matricula.ToString()!),
                 new Claim(JwtRegisteredClaimNames.Name, usuario.Nome ?? ""),
-                new Claim(ClaimTypes.Role,              usuario.Cargo ?? "Operador"),
+                // Normalizado para casar com [Authorize]/IsInRole, que diferenciam maiúsculas
+                new Claim(ClaimTypes.Role,              Cargos.Normalizar(usuario.Cargo)),
                 new Claim("id",                         usuario.Id.ToString()),
             };
 

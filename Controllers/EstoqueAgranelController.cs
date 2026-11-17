@@ -6,6 +6,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using API_PRODUCAO.Security;
+using Microsoft.AspNetCore.Authorization;
 
 namespace API_PRODUCAO.Controllers
 {
@@ -80,6 +82,7 @@ namespace API_PRODUCAO.Controllers
             public string? Usuario { get; set; }
         }
 
+        [Authorize(Policy = Politicas.Administracao)]
         [HttpPost("ajustar")]
         public async Task<IActionResult> Ajustar([FromBody] AjusteEstoqueDto dto)
         {
@@ -105,7 +108,7 @@ namespace API_PRODUCAO.Controllers
                         DescricaoAgranel = vinc?.DescricaoAgranel ?? "A Granel",
                         SaldoLitros = dto.NovoSaldo,
                         ValorUnitario = 0,
-                        UltimaAtualizacao = DateTime.UtcNow,
+                        UltimaAtualizacao = DateTime.Now,
                         Observacoes = dto.Observacao
                     };
                     await _context.EstoqueAgranel.AddAsync(estoque);
@@ -113,7 +116,7 @@ namespace API_PRODUCAO.Controllers
                 else
                 {
                     estoque.SaldoLitros = dto.NovoSaldo;
-                    estoque.UltimaAtualizacao = DateTime.UtcNow;
+                    estoque.UltimaAtualizacao = DateTime.Now;
                     estoque.Observacoes = dto.Observacao;
                     _context.EstoqueAgranel.Update(estoque);
                 }
@@ -125,7 +128,7 @@ namespace API_PRODUCAO.Controllers
                     QuantidadeLitros = dto.NovoSaldo - saldoAnterior,
                     SaldoAnterior = saldoAnterior,
                     SaldoPosterior = dto.NovoSaldo,
-                    DataMovimento = DateTime.UtcNow,
+                    DataMovimento = DateTime.Now,
                     Referencia = "Ajuste manual",
                     Observacao = dto.Observacao,
                     Usuario = dto.Usuario
@@ -155,6 +158,7 @@ namespace API_PRODUCAO.Controllers
             public string? Observacao { get; set; }
         }
 
+        [Authorize(Policy = Politicas.Administracao)]
         [HttpPost("reset")]
         public async Task<IActionResult> Reset([FromBody] ResetEstoqueDto dto)
         {
@@ -175,7 +179,7 @@ namespace API_PRODUCAO.Controllers
                     if (saldoAnterior == 0) continue;
 
                     est.SaldoLitros = 0;
-                    est.UltimaAtualizacao = DateTime.UtcNow;
+                    est.UltimaAtualizacao = DateTime.Now;
 
                     await _context.MovimentosEstoqueAgranel.AddAsync(new MovimentoEstoqueAgranel
                     {
@@ -184,7 +188,7 @@ namespace API_PRODUCAO.Controllers
                         QuantidadeLitros = -saldoAnterior,
                         SaldoAnterior = saldoAnterior,
                         SaldoPosterior = 0,
-                        DataMovimento = DateTime.UtcNow,
+                        DataMovimento = DateTime.Now,
                         Referencia = "Reset manual",
                         Observacao = dto.Observacao ?? "Saldo zerado pelo usuário.",
                         Usuario = dto.Usuario
@@ -198,7 +202,7 @@ namespace API_PRODUCAO.Controllers
                     var movQuery = _context.MovimentosEstoqueAgranel.AsQueryable();
                     if (!resetTodos) movQuery = movQuery.Where(m => m.CodigoAgranel == dto.CodigoAgranel);
                     // Preserva apenas os RESETs recém-criados
-                    var hoje = DateTime.UtcNow.AddSeconds(-30);
+                    var hoje = DateTime.Now.AddSeconds(-30);
                     var movsAntigos = await movQuery.Where(m => m.DataMovimento < hoje).ToListAsync();
                     _context.MovimentosEstoqueAgranel.RemoveRange(movsAntigos);
                 }
@@ -243,6 +247,7 @@ namespace API_PRODUCAO.Controllers
             public string? CodigoAgranel { get; set; }  // null = todos
         }
 
+        [Authorize(Policy = Politicas.Administracao)]
         [HttpPost("reset-consumo-dia")]
         public async Task<IActionResult> ResetConsumoDia([FromBody] ResetConsumoDiaDto dto)
         {
@@ -270,7 +275,7 @@ namespace API_PRODUCAO.Controllers
                     existente.Perdas = existente.Inicial + existente.Preparado - 0 - existente.Final;
                     existente.PerdaValorizada = (decimal)existente.Perdas * existente.ValorUnitario;
                     existente.PercentualPerda = 0;
-                    existente.Observacoes = $"[RESET] Consumo travado em 0 por reset manual em {DateTime.UtcNow:yyyy-MM-dd HH:mm}";
+                    existente.Observacoes = $"[RESET] Consumo travado em 0 por reset manual em {DateTime.Now:yyyy-MM-dd HH:mm}";
                     _context.IndicadoresAgranel.Update(existente);
                 }
                 else
@@ -288,7 +293,7 @@ namespace API_PRODUCAO.Controllers
                         PercentualPerda = 0,
                         PerdaValorizada = 0,
                         ValorUnitario = 0,
-                        Observacoes = $"[RESET] Criado por reset manual em {DateTime.UtcNow:yyyy-MM-dd HH:mm}"
+                        Observacoes = $"[RESET] Criado por reset manual em {DateTime.Now:yyyy-MM-dd HH:mm}"
                     });
                 }
                 alterados++;
@@ -313,6 +318,7 @@ namespace API_PRODUCAO.Controllers
             public string? Confirmacao { get; set; }     // deve ser exatamente "APAGAR"
         }
 
+        [Authorize(Policy = Politicas.Administracao)]
         [HttpPost("purgar-paletes-dia")]
         public async Task<IActionResult> PurgarPaletesDia([FromBody] PurgarPaletesDiaDto dto)
         {
@@ -387,14 +393,14 @@ namespace API_PRODUCAO.Controllers
                         DescricaoAgranel = vinc?.DescricaoAgranel ?? "A Granel",
                         SaldoLitros = saldoNovo,
                         ValorUnitario = 0,
-                        UltimaAtualizacao = DateTime.UtcNow
+                        UltimaAtualizacao = DateTime.Now
                     };
                     await _context.EstoqueAgranel.AddAsync(estoque);
                 }
                 else
                 {
                     estoque.SaldoLitros = saldoNovo;
-                    estoque.UltimaAtualizacao = DateTime.UtcNow;
+                    estoque.UltimaAtualizacao = DateTime.Now;
                     _context.EstoqueAgranel.Update(estoque);
                 }
 
@@ -405,7 +411,7 @@ namespace API_PRODUCAO.Controllers
                     QuantidadeLitros = dto.Quantidade,
                     SaldoAnterior = saldoAnterior,
                     SaldoPosterior = saldoNovo,
-                    DataMovimento = DateTime.UtcNow,
+                    DataMovimento = DateTime.Now,
                     Referencia = "Entrada manual",
                     Observacao = dto.Observacao,
                     Usuario = dto.Usuario
@@ -455,7 +461,7 @@ namespace API_PRODUCAO.Controllers
                     if (estoque != null)
                     {
                         estoque.ValorUnitario = item.ValorUnitario;
-                        estoque.UltimaAtualizacao = DateTime.UtcNow;
+                        estoque.UltimaAtualizacao = DateTime.Now;
                         _context.EstoqueAgranel.Update(estoque);
                     }
                     else
@@ -468,7 +474,7 @@ namespace API_PRODUCAO.Controllers
                             DescricaoAgranel = vinc?.DescricaoAgranel ?? item.CodigoAgranel,
                             SaldoLitros = 0,
                             ValorUnitario = item.ValorUnitario,
-                            UltimaAtualizacao = DateTime.UtcNow
+                            UltimaAtualizacao = DateTime.Now
                         };
                         await _context.EstoqueAgranel.AddAsync(estoque);
                     }

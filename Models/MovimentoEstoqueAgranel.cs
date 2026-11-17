@@ -25,7 +25,7 @@ namespace API_PRODUCAO.Models
         public double SaldoAnterior { get; set; }
         public double SaldoPosterior { get; set; }
 
-        public DateTime DataMovimento { get; set; } = DateTime.UtcNow;
+        public DateTime DataMovimento { get; set; } = DateTime.Now;
 
         /// <summary>OP #1234, Preparo #45, etc.</summary>
         [MaxLength(50)]

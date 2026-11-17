@@ -7,11 +7,15 @@ using Microsoft.EntityFrameworkCore;
 using API_PRODUCAO.Middleware;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using API_PRODUCAO.Security;
+using Microsoft.AspNetCore.Authorization;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
-builder.Services.AddControllers();
+// Datas recebidas em UTC ("...Z") são convertidas para hora local, padrão do banco.
+builder.Services.AddControllers()
+    .AddJsonOptions(o => o.JsonSerializerOptions.Converters.Add(new DataHoraLocalConverter()));
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
@@ -34,9 +38,16 @@ builder.Services.AddCors(options =>
 });
 
 // ── JWT Authentication ────────────────────────────────────────────────────────
-var jwtKey    = builder.Configuration["Jwt:Key"]!;
-var jwtIssuer = builder.Configuration["Jwt:Issuer"]!;
-var jwtAud    = builder.Configuration["Jwt:Audience"]!;
+// Pode vir do appsettings ou de variáveis de ambiente (Jwt__Key, Jwt__Issuer, Jwt__Audience).
+var jwtKey    = builder.Configuration["Jwt:Key"];
+var jwtIssuer = builder.Configuration["Jwt:Issuer"];
+var jwtAud    = builder.Configuration["Jwt:Audience"];
+if (string.IsNullOrWhiteSpace(jwtKey) || jwtKey.Length < 32 ||
+    string.IsNullOrWhiteSpace(jwtIssuer) || string.IsNullOrWhiteSpace(jwtAud))
+{
+    throw new InvalidOperationException(
+        "Configuração JWT ausente ou fraca: defina Jwt:Key (mín. 32 caracteres), Jwt:Issuer e Jwt:Audience.");
+}
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -54,7 +65,25 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         };
     });
 
-builder.Services.AddAuthorization();
+var cargosGestao = new[] { Cargos.Supervisor, Cargos.Admin };
+
+builder.Services.AddScoped<IAuthorizationHandler, CargoOuModuloHandler>();
+builder.Services.AddAuthorization(options =>
+{
+    // Toda rota exige login, exceto as marcadas com [AllowAnonymous] (ex.: /api/Usuario/login)
+    options.FallbackPolicy = new AuthorizationPolicyBuilder()
+        .RequireAuthenticatedUser()
+        .Build();
+
+    options.AddPolicy(Politicas.Administracao, p => p.RequireAuthenticatedUser()
+        .AddRequirements(new CargoOuModuloRequirement(cargosGestao, Array.Empty<string>())));
+
+    options.AddPolicy(Politicas.AberturaOp, p => p.RequireAuthenticatedUser()
+        .AddRequirements(new CargoOuModuloRequirement(cargosGestao, new[] { "supervisor", "supervisor_abertura" })));
+
+    options.AddPolicy(Politicas.GestaoOp, p => p.RequireAuthenticatedUser()
+        .AddRequirements(new CargoOuModuloRequirement(cargosGestao, new[] { "supervisor", "supervisor_gestao", "supervisor_detalhes" })));
+});
 
 // Configure Database
 builder.Services.AddDbContext<AppDbContext>(options =>
@@ -67,7 +96,13 @@ builder.Services.AddScoped<ICadastroService, CadastroService>();
 builder.Services.AddScoped<IPaletizacaoService, PaletizacaoService>();
 builder.Services.AddScoped<IMetaProducaoService, MetaProducaoService>();
 builder.Services.AddScoped<ICaptacaoLeiteService, CaptacaoLeiteService>();
+builder.Services.AddScoped<IColetaLeiteService, ColetaLeiteService>();
 builder.Services.AddScoped<IRelatorioService, RelatorioService>();
+
+// Coletas de leite lidas do banco do sistema do leite (appsettings → LeiteErp).
+// Sem configuração o serviço fica inativo e o agendador não faz nada.
+builder.Services.AddScoped<ColetaLeiteErpService>();
+builder.Services.AddHostedService<ColetaLeiteSyncWorker>();
 
 // AutoMapper
 builder.Services.AddAutoMapper(cfg => {

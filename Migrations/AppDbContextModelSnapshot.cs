@@ -96,6 +96,56 @@ namespace API_PRODUCAO.Migrations
                     b.ToTable("CaptacoesLeite");
                 });
 
+            modelBuilder.Entity("API_PRODUCAO.Models.ColetaLeite", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("DataHoraColeta")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Linha")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("NumeroColeta")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("PlacaCaminhao")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<string>("Produtor")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<string>("Transportador")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<double>("VolumeDescarregado")
+                        .HasColumnType("float");
+
+                    b.Property<double>("VolumeDetalhado")
+                        .HasColumnType("float");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("NumeroColeta")
+                        .IsUnique();
+
+                    b.ToTable("ColetasLeite");
+                });
+
             modelBuilder.Entity("API_PRODUCAO.Models.DetalhamentoOP", b =>
                 {
                     b.Property<int>("Id")

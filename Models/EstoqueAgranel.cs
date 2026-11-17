@@ -25,7 +25,7 @@ namespace API_PRODUCAO.Models
         [Column(TypeName = "decimal(18,4)")]
         public decimal ValorUnitario { get; set; }
 
-        public DateTime UltimaAtualizacao { get; set; } = DateTime.UtcNow;
+        public DateTime UltimaAtualizacao { get; set; } = DateTime.Now;
 
         public string? Observacoes { get; set; }
     }

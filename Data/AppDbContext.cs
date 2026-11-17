@@ -19,6 +19,7 @@ namespace API_PRODUCAO.Data
         public DbSet<MetaProducao> MetasProducao { get; set; }
         public DbSet<MetaCaptacaoLeite> MetasCaptacaoLeite { get; set; }
         public DbSet<CaptacaoLeite> CaptacoesLeite { get; set; }
+        public DbSet<ColetaLeite> ColetasLeite { get; set; }
         public DbSet<VinculoAgranelAcabado> VinculosAgranelAcabado { get; set; }
         public DbSet<IndicadorAgranel> IndicadoresAgranel { get; set; }
         public DbSet<EstoqueAgranel> EstoqueAgranel { get; set; }
@@ -27,6 +28,9 @@ namespace API_PRODUCAO.Data
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
+            modelBuilder.Entity<ColetaLeite>()
+                .HasIndex(c => c.NumeroColeta)
+                .IsUnique();
         }
     }
 }
